@@ -1,3 +1,3 @@
 # lemonpi
 
-aall needed scripts to setup the lemonpi server
+all needed scripts to setup the lemonpi server
