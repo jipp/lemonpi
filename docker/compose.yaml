@@ -1,0 +1,182 @@
+name: lemonpi
+services:
+  certbot:
+    container_name: certbot
+    profiles: [manual]
+    environment:
+      TZ: Europe/Berlin
+    image: certbot/certbot
+    networks:
+      certbot: null
+    restart: "no"
+    volumes:
+      - /docker/certbot/etc/letsencrypt:/etc/letsencrypt
+      - /docker/certbot/var/lib/letsencrypt:/var/lib/letsencrypt
+      - /docker/certbot/var/log/letsencrypt:/var/log/letsencrypt
+  esphome:
+    container_name: esphome
+    profiles: [manual]
+    environment:
+      TZ: Europe/Berlin
+    image: esphome/esphome
+    network_mode: host
+    restart: "no"
+    volumes:
+      - ${PWD}:/config
+  homeassistant:
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    container_name: homeassistant
+    environment:
+      TZ: Europe/Berlin
+    hostname: homeassistant
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl http://127.0.0.1:8123 -s -o /dev/null > /dev/null 2>&1
+    image: homeassistant/home-assistant:latest
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /docker/homeassistant/config:/config
+      - /run/dbus:/run/dbus:ro
+  minecraft-backup:
+    container_name: minecraft-backup
+    depends_on:
+      minecraft-server:
+        condition: service_healthy
+    environment:
+      BACKUP_INTERVAL: 12h
+      PRUNE_BACKUPS_COUNT: "14"
+      RCON_HOST: minecraft-server
+      TZ: Europe/Berlin
+    hostname: minecraft-backup
+    image: itzg/mc-backup
+    networks:
+      minecraft: null
+    restart: always
+    volumes:
+      - /docker/minecraft-server/data:/data:ro
+      - /docker/minecraft-backups:/backups
+  minecraft-backup-small:
+    container_name: minecraft-backup-small
+    depends_on:
+      minecraft-server-small:
+        condition: service_healthy
+    environment:
+      BACKUP_INTERVAL: 12h
+      PRUNE_BACKUPS_COUNT: "14"
+      RCON_HOST: minecraft-server-small
+      TZ: Europe/Berlin
+    hostname: minecraft-backup-small
+    image: itzg/mc-backup
+    networks:
+      minecraft-small: null
+    restart: always
+    volumes:
+      - /docker/minecraft-server-small/data:/data:ro
+      - /docker/minecraft-backups-small:/backups
+  minecraft-server:
+    container_name: minecraft-server
+    environment:
+      EULA: "TRUE"
+      INIT_MEMORY: 1G
+      MAX_MEMORY: 8G
+      TYPE: VANILLA
+      TZ: Europe/Berlin
+      USE_AIKAR_FLAGS: "true"
+      VERSION: LATEST
+    hostname: minecraft-server
+    image: itzg/minecraft-server
+    networks:
+      minecraft: null
+    ports:
+      - 25565:25565
+    restart: always
+    volumes:
+      - /docker/minecraft-server/data:/data
+  minecraft-server-small:
+    container_name: minecraft-server-small
+    environment:
+      EULA: "TRUE"
+      INIT_MEMORY: 1G
+      MAX_MEMORY: 4G
+      TYPE: VANILLA
+      TZ: Europe/Berlin
+      USE_AIKAR_FLAGS: "true"
+      VERSION: LATEST
+    hostname: minecraft-server-small
+    image: itzg/minecraft-server
+    networks:
+      minecraft-small: null
+    ports:
+      - 25566:25565
+    restart: always
+    volumes:
+      - /docker/minecraft-server-small/data:/data
+  nginx:
+    container_name: nginx
+    deploy:
+      resources:
+        limits:
+          cpus: 0.25
+          memory: 50M
+    environment:
+      TZ: Europe/Berlin
+    hostname: nginx
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl http://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
+        - curl https://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
+    image: nginx
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /docker/nginx/conf.d:/etc/nginx/conf.d
+      - /docker/certbot/etc/letsencrypt:/etc/letsencrypt:ro
+  octoprint:
+    container_name: octoprint
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/video0:/dev/video0
+    environment:
+      CAMERA_DEV: /dev/video0
+      ENABLE_MJPG_STREAMER: "true"
+      MJPG_STREAMER_INPUT: -y -n -r 1280x720
+      TZ: Europe/Berlin
+    hostname: octoprint
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - curl http://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
+    image: octoprint/octoprint
+    networks:
+      octoprint: null
+    ports:
+      - 88:80
+    restart: unless-stopped
+    volumes:
+      - /docker/octoprint/octoprint:/octoprint
+networks:
+  certbot:
+    name: certbot
+    driver_opts:
+      com.docker.network.bridge.name: certbot
+    enable_ipv6: true
+  minecraft:
+    name: minecraft
+    driver_opts:
+      com.docker.network.bridge.name: minecraft
+    enable_ipv6: true
+  minecraft-small:
+    name: minecraft-small
+    driver_opts:
+      com.docker.network.bridge.name: minecraft-small
+    enable_ipv6: true
+  octoprint:
+    name: octoprint
+    driver_opts:
+      com.docker.network.bridge.name: octoprint
+    enable_ipv6: true

@@ -1,0 +1,62 @@
+substitutions:
+  devicename: workspace
+  comment: Status
+  name: woke.workspace
+  version: 1.0.0
+  logger: INFO
+#  status_led: GPIO5
+
+external_components:
+- source:
+    url: https://github.com/vbaksa/esphome
+    ref: dev
+    type: git
+  components:
+  - lilygo_t5_47_display
+  - lilygo_t5_47_battery
+
+<<: !include common/esphome.yaml
+
+esp32:
+  board: esp32dev
+
+logger:
+  <<: !include common/logger.yaml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: lilygo_t5_47_battery
+  voltage:
+    name: Battery Voltage
+
+binary_sensor:
+#- <<: !include common/binary_sensor_status.yaml
+
+<<: !include common/base.yaml
+
+display:
+- platform: lilygo_t5_47_display
+  rotation: 0
+  update_interval: 60s
+  full_update_every: 5
+  lambda: !lambda |2-
+
+    it.strftime(15, 310, id(din_big), TextAlign::BASELINE_LEFT, "%H:%M", id(homeassistant_time).now());
+    it.strftime(50, 500, id(din_med), TextAlign::BASELINE_LEFT, "%Y-%m-%d %a", id(homeassistant_time).now());
+
+font:
+- file:
+    path: fonts/IBMPlexMono-Bold.ttf
+    type: local
+  id: din_big
+  size: 300
+  glyphs: "+-0123456789.:"
+- file:
+    path: fonts/IBMPlexMono-Bold.ttf
+    type: local
+  id: din_med
+  size: 100

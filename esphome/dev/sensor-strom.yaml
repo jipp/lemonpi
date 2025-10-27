@@ -1,0 +1,66 @@
+substitutions:
+  devicename: sensor-strom
+  comment: Wemos D1 Mini Pro
+  name: woke.sensor-strom
+  version: 1.0.1
+
+<<: !include common/esphome.yaml
+
+esp8266:
+  board: d1_mini_pro
+
+logger:
+  <<: !include common/logger.yaml
+
+uart:
+- tx_pin:
+    number: D8
+  rx_pin:
+    number: D7
+  baud_rate: 9600
+
+sml:
+- id: my_sml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+- platform: sml
+  name: "Herstelleridentifikation"
+  sml_id: my_sml
+  obis_code: "129-129:199.130.3"
+  format: text
+
+status_led:
+  pin:
+    number: D4
+    inverted: true
+
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: sml
+  name: "Zählerstand zu +A, tariflos"
+  sml_id: my_sml
+  obis_code: "1-0:1.8.0"
+  unit_of_measurement: kWh
+  accuracy_decimals: 1
+  device_class: energy
+  state_class: total_increasing
+  filters:
+  - multiply: 1
+- platform: sml
+  name: "Zählerstand zu -A, tariflos"
+  sml_id: my_sml
+  obis_code: "1-0:2.8.0"
+  unit_of_measurement: kWh
+  accuracy_decimals: 1
+  device_class: energy
+  state_class: total_increasing
+  filters:
+  - multiply: 1
+
+
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml
+
+<<: !include common/base.yaml

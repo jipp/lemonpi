@@ -1,0 +1,5 @@
+- platform: debug
+  device:
+    name: "Device Info"
+  reset_reason:
+    name: "Reset Reason"

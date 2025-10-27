@@ -1,0 +1,25 @@
+config_version = 1
+
+[system]
+hostname = "raspi"
+
+[user]
+name = "woke"
+password = "$y$j9T$h8OxXB9qY4nLYk1jYf5ML.$.P8N.mbUz1lDnEzmsZ2ay8s3VYeFCdTtmhu5iScAUA."
+password_encrypted = true
+
+[ssh]
+enabled = true
+password_authentication = true
+
+[wlan]
+ssid = "wobilix"
+password = "49909842786a5568b0c916dcdd694d7081e999eac46d35340a07d70f2d3f2fb6"
+password_encrypted = true
+hidden = false
+country = "DE"
+
+[locale]
+keymap = "de"
+timezone = "Europe/Berlin"
+

@@ -1,0 +1,5 @@
+output:
+  - platform: esp32_dac
+    pin:
+      number: ${dac_pin}
+    id: dac_output

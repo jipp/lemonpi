@@ -1,0 +1,173 @@
+esphome:
+  name: co2-sensor
+  platform: ESP8266
+  board: d1_mini_pro
+wifi:
+  ap:
+    ssid: co2-sensor
+    password: ojPPqvMnbCO3
+  networks:
+  - ssid: wobilix
+    password: Eins2Drei4
+captive_portal: {}
+logger:
+  level: INFO
+ota:
+  password: 0acht15
+text_sensor:
+- platform: version
+  name: ESPHome Version
+mqtt:
+  broker: lemonpi
+  username: wohnzimmer
+  password: 0acht15
+#  port: 8883
+#  ssl_fingerprints:
+#  - b38ce82ff6bb078d5aceea10890d1ba0f392d8f0
+web_server:
+  port: 80
+i2c:
+- sda: D2
+  scl: D1
+sensor:
+- platform: uptime
+  name: Uptime Sensor
+- platform: wifi_signal
+  name: WiFi Signal Sensor
+- platform: scd30
+  co2:
+    name: CO2
+    id: co2
+    on_value:
+    - then:
+      - script.execute:
+          id: status
+      - script.execute:
+          id: collect_co2
+  temperature:
+    name: Temperature
+    id: temperature
+    on_value:
+    - then:
+      - script.execute:
+          id: collect_temperature
+  humidity:
+    name: Humidity
+    id: humidity
+    on_value:
+    - then:
+      - script.execute:
+          id: collect_humidity
+globals:
+- id: history_co2
+  type: float[40]
+- id: history_temperature
+  type: float[40]
+- id: history_humidity
+  type: float[40]
+script:
+- id: status
+  then:
+  - light.addressable_set:
+      id: ring
+      range_to: !lambda |-
+        return floor(16*(id(co2).state/2400));
+      red: !lambda |-
+        return id(co2).state/16;
+      green: !lambda |-
+        return 100-id(co2).state/64;
+      blue: 0.0
+  - light.addressable_set:
+      id: ring
+      range_from: !lambda |-
+        return ceil(16*(id(co2).state/2400));
+      red: 0.0
+      green: 0.0
+      blue: 0.0
+- id: dim
+  then:
+  - light.addressable_set:
+      id: ring
+      range_to: 15
+      red: 0.0
+      green: 0.0
+      blue: 0.25
+- id: collect_co2
+  then:
+  - lambda: !lambda |-
+      for(int i=0; i<39; i++) {
+        id(history_co2)[i] = id(history_co2)[i+1];
+      }
+      id(history_co2)[39] = 20*id(co2).state/2400;
+- id: collect_temperature
+  then:
+  - lambda: !lambda |-
+      for(int i=0; i<39; i++) {
+        id(history_temperature)[i] = id(history_temperature)[i+1];
+      }
+      id(history_temperature)[39] = 20*(id(temperature).state-10)/30;
+- id: collect_humidity
+  then:
+  - lambda: !lambda |-
+      for(int i=0; i<39; i++) {
+        id(history_humidity)[i] = id(history_humidity)[i+1];
+      }
+      id(history_humidity)[39] = 20*id(humidity).state/100;
+font:
+- file: fonts/arial.ttf
+  id: arial_14
+  size: 14
+- file: fonts/arial.ttf
+  id: arial_12
+  size: 12
+- file: fonts/arial.ttf
+  id: arial_10
+  size: 10
+- file: fonts/arial.ttf
+  id: arial_8
+  size: 8
+display:
+- platform: ssd1306_i2c
+  model: SSD1306_128X64
+  lambda: !lambda |-
+    it.printf(0, 0, id(arial_14), TextAlign::TOP_LEFT, "CO2 Sensor");
+    if (id(co2).has_state()) {
+      it.printf(39, 17, id(arial_12), TextAlign::TOP_RIGHT, "%.0f", id(co2).state);
+      it.print(40, 17, id(arial_12), TextAlign::TOP_LEFT, "ppm");
+    }
+    it.line(82, 1, 82, 21);
+    for(int i=0; i<40; i++) {
+      it.line(83+i, 21-id(history_co2)[i], 83+i, 21);
+    }
+    if (id(temperature).has_state()) {
+      it.printf(39, 30, id(arial_12), TextAlign::TOP_RIGHT, "%.1f", id(temperature).state);
+      it.print(40, 30, id(arial_12), TextAlign::TOP_LEFT, "°C");
+    }
+    it.line(82, 22, 82, 42);
+    for(int i=0; i<40; i++) {
+      it.line(83+i, 42-id(history_temperature)[i], 83+i, 42);
+    }
+    if (id(humidity).has_state()) {
+      it.printf(39, 43, id(arial_12), TextAlign::TOP_RIGHT, "%.0f", id(humidity).state);
+      it.print(40, 43, id(arial_12), TextAlign::TOP_LEFT, "%");
+    }
+    it.line(82, 43, 82, 63);
+    for(int i=0; i<40; i++) {
+      it.line(83+i, 63-id(history_humidity)[i], 83+i, 63);
+    }
+light:
+- platform: fastled_clockless
+  chipset: WS2812B
+  pin: RX
+  num_leds: 16
+  rgb_order: GRB
+  name: ring
+  id: ring
+  default_transition_length: 100ms
+  restore_mode: RESTORE_DEFAULT_ON
+  on_turn_on:
+  - then:
+    - delay: 500ms
+    - script.execute:
+        id: dim
+

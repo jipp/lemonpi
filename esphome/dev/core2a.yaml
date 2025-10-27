@@ -1,0 +1,84 @@
+substitutions:
+  devicename: core2
+  comment: m5stack-core2
+  name: woke.basement
+  version: 2.3.0
+  logger: VERBOSE
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  cs_pin: GPIO5
+  dc_pin: GPIO15
+  clk_pin: GPIO18
+  sda_pin: GPIO21
+  scl_pin: GPIO22
+  mosi_pin: GPIO23
+  miso_pin: GPIO38
+  int_pin: GPIO39
+  <<: !include common/font_size.yaml
+
+esphome:
+  <<: !include common/esphome.yaml
+
+esp32:
+#  board: m5stack-core2
+  board: esp32dev
+  flash_size: 16MB
+  cpu_frequency: 240MHZ
+  framework:
+    type: esp-idf
+
+logger:
+  logs:
+    component: ERROR
+  <<: !include common/logger.yaml
+
+text_sensor:
+  - <<: !include common/text_sensor_version.yaml
+  - <<: !include common/text_sensor_wifi_info.yaml
+
+sensor:
+  - <<: !include common/sensor_uptime.yaml
+  - <<: !include common/sensor_wifi_signal.yaml
+
+binary_sensor:
+  - <<: !include common/binary_sensor_status.yaml
+
+button:
+  - <<: !include common/restart.yaml
+
+display:
+  - platform: ili9xxx
+    model: M5STACK
+    invert_colors: true
+    color_palette: 8BIT
+    id: display_ili9xxx
+    dc_pin:
+      number: ${dc_pin}
+    cs_pin:
+      number: ${cs_pin}
+    pages:
+      - id: status_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "uptime:");
+          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+
+          it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "WiFi Signal:");
+          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+
+          it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "IP Address:");
+          it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+
+          it.print(2, ${normal} + 4 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "Home Assistant:");
+          it.printf(it.get_width() - 2, ${normal} + 4 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+
+          it.printf(2, it.get_height() - 2, id(roboto_small), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+sml:
+
+<<: !include common/color.yaml
+<<: !include common/font.yaml
+<<: !include common/uart.yaml
+<<: !include common/spi.yaml
+<<: !include common/base.yaml

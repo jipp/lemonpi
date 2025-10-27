@@ -1,0 +1,279 @@
+#
+# https://shop.m5stack.com/products/esp32-basic-core-lot-development-kit-v2-7
+# https://docs.m5stack.com/en/core/basic_v2.7
+#
+
+substitutions:
+  devicename: basement
+  comment: m5stack-core-esp32-16M
+  name: woke.basement
+  version: 2.4.1
+  logger: INFO
+  clk_pin: GPIO18
+  miso_pin: GPIO19
+  mosi_pin: GPIO23
+  dc_pin: GPIO27
+  cs_pin: GPIO14
+  reset_pin: GPIO33
+  bl_pin: GPIO32
+  button_pin_a: GPIO39
+  button_pin_b: GPIO38
+  button_pin_c: GPIO37
+  dac_pin: GPIO25
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  binary_sensor_gas: GPIO21
+  energy_use: 1-0:1.8.0
+  energy_use_unit: Wh
+  energy_use_factor: '0.00001'
+  energy_win: 1-0:2.8.0
+  energy_win_unit: Wh
+  energy_win_factor: '0.00001'
+  power: 1-0:16.7.0
+  power_unit: W
+  power_factor: '0.01'
+  gas_puls: gas puls
+  gas_current: gas current
+  gas_current_2: gas_current_2
+  gas_offset: gas offset
+  gas: gas
+  <<: !include common/font_size.yaml
+
+esphome:
+  <<: !include common/esphome.yaml
+  on_boot:
+    - then:
+        - display.page.show:
+            id: status_page
+        - switch.turn_on:
+            id: switch_bl
+        - delay: 30s
+        - switch.turn_off:
+            id: switch_bl
+
+esp32:
+  board: esp32dev
+  flash_size: 16MB
+  cpu_frequency: 240MHZ
+  framework:
+    type: esp-idf
+
+logger:
+  <<: !include common/logger.yaml
+
+debug:
+  <<: !include common/debug.yaml
+
+globals:
+  - id: total_gas_pulses
+    type: float
+    initial_value: '0.0'
+
+text_sensor:
+  - <<: !include common/text_sensor_version.yaml
+  - <<: !include common/text_sensor_wifi_info.yaml
+  - <<: !include common/text_sensor_debug.yaml
+
+sensor:
+  - <<: !include common/sensor_uptime.yaml
+  - <<: !include common/sensor_wifi_signal.yaml
+  - <<: !include common/sensor_debug.yaml
+  - platform: homeassistant
+    name: ${gas_current_2}
+    id: sensor_homeassistant_gas_current_2
+    entity_id: sensor.gas_current_2
+    unit_of_measurement: m³
+    accuracy_decimals: 2
+  - platform: homeassistant
+    name: ${gas_offset}
+    id: sensor_homeassistant_gas_offset
+    entity_id: input_number.gas_offset
+    unit_of_measurement: m³
+    accuracy_decimals: 2
+  - platform: template
+    name: ${gas}
+    id: sensor_template_gas
+    device_class: gas
+    update_interval: 10s
+    unit_of_measurement: m³
+    state_class: total_increasing
+    icon: mdi:fire
+    accuracy_decimals: 2
+    lambda: !lambda |-
+      return id(sensor_homeassistant_gas_offset).state+id(sensor_homeassistant_gas_current_2).state;
+  - platform: template
+    name: ${gas_current}
+    id: sensor_template_gas_current
+    device_class: gas
+    update_interval: 10s
+    unit_of_measurement: m³
+    state_class: total_increasing
+    icon: mdi:fire
+    accuracy_decimals: 2
+    lambda: !lambda |-
+      return id(total_gas_pulses);
+  - platform: sml
+    name: ${energy_use}
+    id: sensor_sml_energy_use
+    obis_code: 1-0:1.8.0
+    unit_of_measurement: ${energy_use_unit}
+    accuracy_decimals: 2
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: ${energy_use_factor}
+      - throttle: 1s
+      - throttle_average: 60s
+  - platform: sml
+    name: ${energy_win}
+    id: sensor_sml_energy_win
+    obis_code: 1-0:2.8.0
+    unit_of_measurement: ${energy_win_unit}
+    accuracy_decimals: 2
+    device_class: energy
+    state_class: total_increasing
+    filters:
+      - multiply: ${energy_win_factor}
+      - throttle: 1s
+      - throttle_average: 60s
+  - platform: sml
+    name: ${power}
+    id: sensor_sml_power
+    obis_code: 1-0:16.7.0
+    unit_of_measurement: ${power_unit}
+    accuracy_decimals: 2
+    device_class: power
+    state_class: measurement
+    filters:
+      - multiply: ${power_factor}
+      - throttle: 1s
+      - throttle_average: 60s
+
+binary_sensor:
+  - <<: !include common/binary_sensor_status.yaml
+  - platform: gpio
+    id: binary_sensor_button_a
+    pin:
+      number: ${button_pin_a}
+      inverted: true
+    on_click:
+    - then:
+      - display.page.show_previous:
+          id: display_M5CORE
+  - platform: gpio
+    id: binary_sensor_button_b
+    pin:
+      number: ${button_pin_b}
+      inverted: true
+    on_click:
+      - then:
+          - display.page.show_next:
+              id: display_M5CORE
+  - platform: gpio
+    id: binary_sensor_button_c
+    pin:
+      number: ${button_pin_c}
+      inverted: true
+    on_click:
+      - then:
+          - switch.turn_on:
+              id: switch_bl
+          - delay: 10s
+          - switch.turn_off:
+              id: switch_bl
+  - platform: gpio
+    pin:
+      number: ${binary_sensor_gas}
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    id: puls
+    name: Puls
+    filters:
+      - delayed_on: 100ms
+    on_press:
+      - then:
+          - lambda: !lambda |-
+              id(total_gas_pulses) += 0.01;
+
+button:
+  - <<: !include common/restart.yaml
+
+switch:
+  - platform: gpio
+    pin:
+      number: ${bl_pin}
+    id: switch_bl
+
+psram:
+
+display:
+  - platform: mipi_spi
+    model: M5CORE
+    invert_colors: true
+    color_depth: 8BIT
+    id: display_M5CORE
+    dc_pin:
+      number: ${dc_pin}
+    cs_pin:
+      number: ${cs_pin}
+    reset_pin:
+      number: ${reset_pin}
+    pages:
+      - id: status_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "uptime:");
+          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+
+          it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "WiFi Signal:");
+          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+
+          it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "IP Address:");
+          it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+
+          it.print(2, ${normal} + 4 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "Home Assistant:");
+          it.printf(it.get_width() - 2, ${normal} + 4 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+
+          it.printf(2, it.get_height() - 2, id(roboto_small), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+      - id: gas_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas_puls}:");
+          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(puls).state?"on":"off");
+
+          it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas_current}:");
+          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f m³", id(sensor_template_gas_current).state);
+
+          it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas}:");
+          it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f m³", id(sensor_template_gas).state);
+
+          it.printf(2, it.get_height() - 2, id(roboto_small), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+      - id: power_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${energy_use}:");
+          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f ${energy_use_unit}", id(sensor_sml_energy_use).state);
+
+          it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${energy_win}:");
+          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f ${energy_win_unit}", id(sensor_sml_energy_win).state);
+
+          it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${power}:");
+          it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f ${power_unit}", id(sensor_sml_power).state);
+
+          it.printf(2, it.get_height() - 2, id(roboto_small), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+sml:
+
+<<: !include common/color.yaml
+<<: !include common/font.yaml
+<<: !include common/uart.yaml
+<<: !include common/spi.yaml
+<<: !include common/output.yaml
+<<: !include common/base.yaml

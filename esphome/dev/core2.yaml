@@ -1,0 +1,122 @@
+#
+# https://shop.m5stack.com/products/m5stack-core2-esp32-iot-development-kit-v1-1
+# https://docs.m5stack.com/en/core/Core2%20v1.1
+#
+
+substitutions:
+  devicename: core2
+  comment: m5stack-core2
+  name: woke.basement
+  version: 2.3.0
+  logger: INFO
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  cs_pin: GPIO5
+  dc_pin: GPIO15
+  clk_pin: GPIO18
+  sda_pin: GPIO21
+  scl_pin: GPIO22
+  mosi_pin: GPIO23
+  miso_pin: GPIO38
+  int_pin: GPIO39
+  <<: !include common/font_size.yaml
+
+esphome:
+  <<: !include common/esphome.yaml
+
+esp32:
+  board: m5stack-core2
+#  board: esp32dev
+#  flash_size: 16MB
+#  cpu_frequency: 240MHZ
+  framework:
+    type: esp-idf
+
+logger:
+  <<: !include common/logger.yaml
+
+i2c:
+  - <<: !include common/i2c.yaml
+
+text_sensor:
+  - <<: !include common/text_sensor_version.yaml
+  - <<: !include common/text_sensor_wifi_info.yaml
+
+sensor:
+  - <<: !include common/sensor_uptime.yaml
+  - <<: !include common/sensor_wifi_signal.yaml
+  - <<: !include common/sensor_mpu6886.yaml
+
+binary_sensor:
+  - <<: !include common/binary_sensor_status.yaml
+  - platform: touchscreen
+    name: Button A
+    x_min: 10
+    x_max: 120
+    y_min: 240
+    y_max: 280
+    use_raw: true
+
+  - platform: touchscreen
+    name: Button B
+    x_min: 130
+    x_max: 200
+    y_min: 240
+    y_max: 280
+    use_raw: true
+
+  - platform: touchscreen
+    name: Button C
+    x_min: 230
+    x_max: 310
+    y_min: 240
+    y_max: 280
+    use_raw: true
+
+button:
+  - <<: !include common/restart.yaml
+
+psram:
+
+display:
+  - platform: ili9xxx
+    model: M5STACK
+#    invert_colors: true
+#    color_palette: 8BIT
+    id: display_ili9xxx
+    dc_pin:
+      number: ${dc_pin}
+    cs_pin:
+      number: ${cs_pin}
+    lambda: |-
+      it.print(0, 0, id(roboto_normal), "Hello World");
+#    pages:
+#      - id: status_page
+#        lambda: |-
+#          it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+#          it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "uptime:");
+#          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+
+#          it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "WiFi Signal:");
+#          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+
+#          it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "IP Address:");
+#          it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+
+#          it.print(2, ${normal} + 4 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "Home Assistant:");
+#          it.printf(it.get_width() - 2, ${normal} + 4 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+
+#          it.printf(2, it.get_height() - 2, id(roboto_small), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+touchscreen:
+  - platform: ft63x6
+    interrupt_pin: ${int_pin}
+
+sml:
+
+<<: !include common/color.yaml
+<<: !include common/font.yaml
+<<: !include common/uart.yaml
+<<: !include common/spi.yaml
+<<: !include common/base.yaml

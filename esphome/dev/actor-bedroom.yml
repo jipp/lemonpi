@@ -1,0 +1,41 @@
+esphome:
+  name: actor-bedroom
+esp8266:
+  board: d1_mini_pro
+wifi:
+  ap:
+    ssid: actor-bedroom
+    password: TJ3FEvhl31QJ
+  networks:
+  - ssid: wobilix
+    password: Eins2Drei4
+captive_portal: {}
+logger:
+  level: INFO
+ota:
+  password: 0acht15
+text_sensor:
+- platform: version
+  name: ESPHome Version
+mqtt:
+  broker: lemonpi
+  username: actor-bedroom
+  password: 0acht15
+web_server:
+  port: 80
+api:
+  password: ""
+sensor:
+- platform: homeassistant
+  name: "Actor Bedroom"
+  entity_id: actor.bedroom
+  attribute: led
+- platform: uptime
+  name: Uptime
+- platform: wifi_signal
+  name: WiFi Signal
+switch:
+- platform: gpio
+  pin:
+    number: D5
+  name: led

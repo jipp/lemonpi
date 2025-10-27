@@ -1,0 +1,17 @@
+- platform: mpu6886
+  id: sensor_mpu6886
+  i2c_id: i2c_bus
+  accel_x:
+    name: "Accel X"
+  accel_y:
+    name: "Accel Y"
+  accel_z:
+    name: "Accel z"
+  gyro_x:
+    name: "Gyro X"
+  gyro_y:
+    name: "Gyro Y"
+  gyro_z:
+    name: "Gyro z"
+  temperature:
+    name: "Temperature"

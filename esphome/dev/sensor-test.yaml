@@ -1,0 +1,106 @@
+substitutions:
+  devicename: sensor-test
+  comment: Wemos D1 Mini Pro
+  name: woke.sensor-test
+  version: 1.0.1
+
+<<: !include common/esphome.yaml
+
+esp8266:
+  board: d1_mini_pro
+
+logger:
+  <<: !include common/logger.yaml
+#  level: DEBUG
+
+uart:
+- tx_pin:
+    number: D8
+  rx_pin:
+    number: D7
+  baud_rate: 9600
+
+sml:
+- id: my_sml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+- platform: sml
+  name: "Herstelleridentifikation"
+  sml_id: my_sml
+  obis_code: "129-129:199.130.3"
+  format: text
+
+status_led:
+  pin:
+    number: D4
+    inverted: true
+
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: sml
+  name: "Zählerstand zu +A, tariflos"
+  sml_id: my_sml
+  obis_code: "1-0:1.8.0"
+  unit_of_measurement: Wh
+  accuracy_decimals: 2
+  device_class: energy
+  state_class: total_increasing
+  filters:
+  - multiply: 0.00001
+- platform: sml
+  name: "Zählerstand zu -A, tariflos"
+  sml_id: my_sml
+  obis_code: "1-0:2.8.0"
+  unit_of_measurement: Wh
+  accuracy_decimals: 2
+  device_class: energy
+  state_class: total_increasing
+  filters:
+  - multiply: 0.00001
+- platform: sml
+  name: "Summe der Momentan-Leistungen in allen Phasen"
+  sml_id: my_sml
+  obis_code: "1-0:16.7.0"
+  unit_of_measurement: W
+  accuracy_decimals: 2
+  device_class: power
+  state_class: measurement
+  filters:
+  - multiply: 0.01
+- platform: sml
+  name: "Momentane Leistung in Phase L1"
+  sml_id: my_sml
+  obis_code: "1-0:36.7.0"
+  unit_of_measurement: W
+  accuracy_decimals: 2
+  device_class: power
+  state_class: measurement
+  filters:
+  - multiply: 0.01
+- platform: sml
+  name: "Momentane Leistung in Phase L2"
+  sml_id: my_sml
+  obis_code: "1-0:56.7.0"
+  unit_of_measurement: W
+  accuracy_decimals: 2
+  device_class: power
+  state_class: measurement
+  filters:
+  - multiply: 0.01
+- platform: sml
+  name: "Momentane Leistung in Phase L3"
+  sml_id: my_sml
+  obis_code: "1-0:76.7.0"
+  unit_of_measurement: W
+  accuracy_decimals: 2
+  device_class: power
+  state_class: measurement
+  filters:
+  - multiply: 0.01
+
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml
+
+<<: !include common/base.yaml

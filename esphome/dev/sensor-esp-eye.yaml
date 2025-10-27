@@ -1,0 +1,46 @@
+substitutions:
+  devicename: sensor-esp-eye
+  comment: Wemos D1 Mini Pro
+  name: woke.sensor-esp-eye
+  version: 1.0.0
+
+esp32:
+  board: esp32cam
+
+<<: !include common/base.yaml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+status_led:
+  pin: GPIO21
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml
+esp32_camera:
+  name: $devicename
+  external_clock:
+    pin: GPIO4
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO18
+    scl: GPIO23
+  data_pins: [GPIO34, GPIO13, GPIO14, GPIO35, GPIO39, GPIO38, GPIO37, GPIO36]
+  vsync_pin: GPIO5
+  href_pin: GPIO27
+  pixel_clock_pin: GPIO25
+  resolution: XGA
+esp32_camera_web_server:
+- port: 8080
+  mode: stream
+- port: 8081
+  mode: snapshot
+light:
+- platform: binary
+  name: "Licht"
+  output: light_output
+output:
+- platform: gpio
+  id: light_output
+  pin: GPIO22

@@ -1,0 +1,57 @@
+substitutions:
+  devicename: sensor-test
+  comment: Wemos D1 Mini Pro
+  name: woke.sensor-test
+  version: 1.0.1
+
+esp8266:
+  board: d1_mini_pro
+
+external_components:
+- source: github://mampfes/esphome_obis_d0
+
+globals:
+- id: total_pulses
+  type: int
+  initial_value: '0'
+
+logger:
+  level: DEBUG
+
+<<: !include common/base.yaml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+- platform: obis_d0
+  name: "Device Identification"
+  obis_d0_id: my_sm
+  obis_code: "1-0:96.1.0*255"
+  entity_category: diagnostic
+  value_regex: "\\w{14}"
+status_led:
+  pin:
+    number: D4
+    inverted: true
+uart:
+  id: my_uart
+  tx_pin: D8
+  rx_pin: D7
+  baud_rate: 9600
+  debug:
+obis_d0:
+  id: my_sm
+  uart_id: my_uart
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: obis_d0
+  name: "Consumed Energy"
+  obis_d0_id: my_sm
+  obis_code: "1-0:1.8.0*255"
+  unit_of_measurement: kWh
+  accuracy_decimals: 4
+  state_class: total_increasing
+  device_class: energy
+  value_regex: "\\d{6}\\.\\d{8}\\*kWh"
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml

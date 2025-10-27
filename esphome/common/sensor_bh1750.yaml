@@ -1,0 +1,6 @@
+- platform: bh1750
+  name: illuminance
+  id: sensor_bh1750
+  icon: mdi:sun-wireless-outline
+  i2c_id: i2c_e_bus
+

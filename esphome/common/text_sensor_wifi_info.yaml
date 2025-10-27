@@ -1,0 +1,4 @@
+- platform: wifi_info
+  ip_address:
+    name: IP Address
+    id: text_sensor_wifi_info_ip_address

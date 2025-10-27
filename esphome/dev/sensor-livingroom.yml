@@ -1,0 +1,41 @@
+esphome:
+  name: sensor-livingroom
+esp8266:
+  board: d1_mini_pro
+wifi:
+  ap:
+    ssid: sensor-livingroom
+    password: ojPPqvMnbCO3
+  networks:
+  - ssid: wobilix
+    password: Eins2Drei4
+captive_portal: {}
+logger:
+  level: INFO
+ota:
+  password: 0acht15
+text_sensor:
+- platform: version
+  name: ESPHome Version
+#mqtt:
+#  broker: lemonpi
+#  username: sensor-livingroom
+#  password: 0acht15
+web_server:
+  port: 80
+api:
+  password: ""
+i2c:
+- sda: D2
+  scl: D1
+sensor:
+- platform: homeassistant
+  name: "Illuminance Sensor Livingroom"
+  entity_id: sensor.livingroom
+  attribute: illuninance
+- platform: uptime
+  name: Uptime
+- platform: wifi_signal
+  name: WiFi Signal
+- platform: bh1750
+  name: illuminance

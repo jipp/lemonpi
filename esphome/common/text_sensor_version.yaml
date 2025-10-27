@@ -1,0 +1,4 @@
+- platform: version
+  name: ESPHome Version
+  id: text_sensor_version
+  hide_timestamp: true

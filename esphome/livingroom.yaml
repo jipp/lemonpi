@@ -1,0 +1,166 @@
+#
+# https://shop.m5stack.com/products/atoms3-dev-kit-w-0-85-inch-screen
+# https://docs.m5stack.com/en/core/AtomS3
+#
+
+substitutions:
+  devicename: livingroom
+  comment: m5stack-atoms3
+  name: woke.livingroom
+  version: 2.4.1
+  logger: INFO
+  sda_e_pin: GPIO2
+  scl_e_pin: GPIO1
+  ir_pin: GPIO4
+  cs_pin: GPIO15
+  bl_pin: GPIO16
+  clk_pin: GPIO17
+  mosi_pin: GPIO21
+  dc_pin: GPIO33
+  reset_pin: GPIO34
+  sda_pin: GPIO38
+  scl_pin: GPIO39
+  button_pin: GPIO41
+  duration: 24h
+  x_grid: 8h
+  graph_width: "124"
+  graph_height: "90"
+  <<: !include common/font_size.yaml
+
+esphome:
+  <<: !include common/esphome.yaml
+  on_boot:
+    - then:
+      - display.page.show:
+          id: status_page
+      - switch.turn_on:
+          id: switch_bl
+      - delay: 30s
+      - switch.turn_off:
+          id: switch_bl
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 8MB
+  cpu_frequency: 240MHZ
+  framework:
+    type: esp-idf
+
+logger:
+  <<: !include common/logger.yaml
+
+debug:
+  <<: !include common/debug.yaml
+
+i2c:
+  - <<: !include common/i2c.yaml
+  - <<: !include common/i2c_e.yaml
+
+text_sensor:
+  - <<: !include common/text_sensor_version.yaml
+  - <<: !include common/text_sensor_wifi_info.yaml
+  - <<: !include common/text_sensor_debug.yaml
+
+sensor:
+  - <<: !include common/sensor_uptime.yaml
+  - <<: !include common/sensor_wifi_signal.yaml
+  - <<: !include common/sensor_mpu6886.yaml
+  - <<: !include common/sensor_bh1750.yaml
+  - <<: !include common/sensor_debug.yaml
+
+binary_sensor:
+  - <<: !include common/binary_sensor_status.yaml
+  - platform: gpio
+    id: binary_sensor_button_pin
+    pin:
+      number: ${button_pin}
+      inverted: true
+    on_click:
+    - min_length: 50ms
+      max_length: 350ms
+      then:
+      - switch.turn_on:
+          id: switch_bl
+      - delay: 10s
+      - switch.turn_off:
+          id: switch_bl
+    - min_length: 500ms
+      max_length: 1000ms
+      then:
+      - display.page.show_next:
+          id: display_ili9xxx
+
+button:
+  - <<: !include common/restart.yaml
+
+switch:
+  - platform: gpio
+    pin:
+      number: ${bl_pin}
+    id: switch_bl
+
+graph:
+  - id: illuminance_graph
+    duration: ${duration}
+    x_grid: ${x_grid}
+    width: ${graph_width}
+    height: ${graph_height}
+    traces:
+      - sensor: sensor_bh1750
+        continuous: true
+        color: green
+
+psram:
+
+display:
+  - platform: ili9xxx
+    model: ST7789V
+    dimensions:
+      height: 128
+      width: 128
+      offset_height: 1
+      offset_width: 2
+    invert_colors: true
+    color_palette: 8BIT
+    id: display_ili9xxx
+    dc_pin:
+      number: ${dc_pin}
+    cs_pin:
+      number: ${cs_pin}
+    reset_pin:
+      number: ${reset_pin}
+    pages:
+      - id: status_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${tiny}, id(roboto_tiny), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.print(2, 2*${small}, id(roboto_small), green, TextAlign::BOTTOM_LEFT, "uptime:");
+          it.printf(it.get_width() - 2, 2*${small}, id(roboto_small), blue, TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+
+          it.print(2, 3*${small}, id(roboto_small), green, TextAlign::BOTTOM_LEFT, "WiFi:");
+          it.printf(it.get_width() - 2, 3*${small}, id(roboto_small), blue, TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+
+          it.print(2, 4*${small}, id(roboto_small), green, TextAlign::BOTTOM_LEFT, "IP:");
+          it.printf(it.get_width() - 2, 4*${small}, id(roboto_small), blue, TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+
+          it.print(2, 5*${small}, id(roboto_small), green, TextAlign::BOTTOM_LEFT, "HA:");
+          it.printf(it.get_width() - 2, 5*${small}, id(roboto_small), blue, TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+
+          it.print(2, 6*${small}, id(roboto_small), green, TextAlign::BOTTOM_LEFT, "illuminance:");
+          it.printf(it.get_width() - 2, 6*${small}, id(roboto_small), blue, TextAlign::BOTTOM_RIGHT, "%.0f lux", id(sensor_bh1750).state);
+
+          it.printf(2, it.get_height() - 2, id(roboto_tiny), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+      - id: graph_page
+        lambda: |-
+          it.strftime(it.get_width() - 2, ${tiny}, id(roboto_tiny), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+          it.graph(2, ${tiny} + 2, id(illuminance_graph));
+
+          it.printf(2, it.get_height() - 2, id(roboto_tiny), red, TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+          it.print(it.get_width() - 2, it.get_height() - 2, id(roboto_tiny), blue, TextAlign::BOTTOM_RIGHT, "duration: ${duration}");
+
+<<: !include common/color.yaml
+<<: !include common/font.yaml
+<<: !include common/spi_mosi.yaml
+<<: !include common/base.yaml

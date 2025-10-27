@@ -1,0 +1,61 @@
+font:
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_tiny
+    size: 12
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_small
+    size: 14
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_normal
+    size: 16
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_large
+    size: 22
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_extra_large
+    size: 32
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Roboto
+      type: gfonts
+    id: roboto_hughe
+    size: 48
+    glyphs: '!"%()+,-_.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz/³µä'
+  - file:
+      family: Material+Symbols+Outlined
+      type: gfonts
+    id: font_icons_extra_large
+    size: 32
+    glyphs:
+    - "\ue1c6" # Sunrise
+    - "\uef44" # Sunset
+    - "\uf582" # Temperature High
+    - "\uf581" # Temperature Low
+    - "\ue1ff" # device_thermostat
+    - "\ueb70" # currency exchange
+  - file:
+      family: Material+Symbols+Outlined
+      type: gfonts
+    id: font_icons_hughe
+    size: 48
+    glyphs:
+    - "\ue1c6" # Sunrise
+    - "\uef44" # Sunset
+    - "\uf582" # Temperature High
+    - "\uf581" # Temperature Low
+    - "\ue1ff" # device_thermostat
+    - "\ueb70" # currency exchange

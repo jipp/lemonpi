@@ -1,0 +1,247 @@
+# https://www.stdin.co.uk/blog2/2023/11/lilygo-t5-4.7-e-paper-display-esphome/
+# https://esphome.io/components/touchscreen/lilygo_t5_47.html
+# https://github.com/Xinyuan-LilyGO/LilyGo-EPD47/blob/master/datasheet/ED047TC1.pdf
+
+substitutions:
+  devicename: workplace
+  comment: status
+  name: woke.workplace
+  version: 2.3.0
+  logger: INFO
+  button_pin_s2: GPIO34 #ok s2
+  button_pin_s3: GPIO35 #ok s3
+  button_pin_s4: GPIO39 #ok s4
+
+  w: "185"
+  interval: "1d"
+  <<: !include common/font_size.yaml
+
+esphome:
+  <<: !include common/esphome.yaml
+  on_boot:
+  - then:
+    - display.page.show:
+        id: weather_page
+
+esp32:
+  board: esp32dev
+
+external_components:
+  - source:
+      url: https://github.com/tiaanv/esphome-components.git
+      type: git
+    components:
+    - t547
+  - source:
+      url: https://github.com/vbaksa/esphome
+      type: git
+    components:
+    - lilygo_t5_47_display
+    - lilygo_t5_47_battery
+
+logger:
+  logs:
+    component: ERROR
+  <<: !include common/logger.yaml
+
+sun:
+  latitude: 53.450°
+  longitude: 9.700°
+
+text_sensor:
+- <<: !include common/text_sensor_version.yaml
+- <<: !include common/text_sensor_wifi_info.yaml
+- platform: homeassistant
+  name: sun next rising
+  id: sun_next_rising
+  entity_id: sensor.sun_next_rising
+- platform: homeassistant
+  name: sun next setting
+  id: sun_next_setting
+  entity_id: sensor.sun_next_setting
+- platform: sun
+  name: Sun Next Sunrise
+  type: sunrise
+  id: sunrise
+- platform: sun
+  name: Sun Next Sunset
+  type: sunset
+  id: sunset
+- platform: homeassistant
+  name: forecast home state
+  id: forecast_home_state
+  entity_id: weather.forecast_home
+- platform: homeassistant
+  name: temperature unit
+  id: forecast_home_temperature_unit
+  entity_id: weather.forecast_home
+  attribute: temperature_unit
+- platform: homeassistant
+  name: pressure unit
+  id: forecast_home_pressure_unit
+  entity_id: weather.forecast_home
+  attribute: pressure_unit
+- platform: homeassistant
+  name: windspeed unit
+  id: forecast_home_wind_speed_unit
+  entity_id: weather.forecast_home
+  attribute: wind_speed_unit
+
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: homeassistant
+  name: temperature
+  id: forecast_home_temperature
+  entity_id: weather.forecast_home
+  attribute: temperature
+- platform: homeassistant
+  name: humidity
+  id: forecast_home_humidity
+  entity_id: weather.forecast_home
+  attribute: humidity
+- platform: homeassistant
+  name: cloud_coverage
+  id: forecast_home_cloud_coverage
+  entity_id: weather.forecast_home
+  attribute: cloud_coverage
+- platform: homeassistant
+  name: pressure
+  id: forecast_home_pressure
+  entity_id: weather.forecast_home
+  attribute: pressure
+- platform: homeassistant
+  name: wind_speed
+  id: forecast_home_wind_speed
+  entity_id: weather.forecast_home
+  attribute: wind_speed
+- platform: homeassistant
+  name: wind bearing
+  id: forecast_home_wind_bearing
+  entity_id: weather.forecast_home
+  attribute: wind_bearing
+
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml
+- platform: gpio
+  id: binary_sensor_button_s2
+  name: s2
+  pin:
+    number: ${button_pin_s2}
+    inverted: true
+- platform: gpio
+  id: binary_sensor_button_s3
+  name: s3
+  pin:
+    number: ${button_pin_s3}
+    inverted: true
+- platform: gpio
+  id: binary_sensor_button_s4
+  name: s4
+  pin:  
+    number: ${button_pin_s4}
+    inverted: true
+
+button:
+- <<: !include common/restart.yaml
+
+graph:
+- id: temperature_graph
+  duration: ${interval}
+  width: ${w}
+  height: 200
+  traces:
+  - sensor: forecast_home_temperature
+    continuous: true
+- id: humidity_graph
+  duration: ${interval}
+  width: ${w}
+  height: 200
+  traces:
+  - sensor: forecast_home_humidity
+    continuous: true
+- id: cloud_coverage_graph
+  duration: ${interval}
+  width: ${w}
+  height: 200
+  traces:
+  - sensor: forecast_home_cloud_coverage
+    continuous: true
+- id: pressure_graph
+  duration: ${interval}
+  width: ${w}
+  height: 200
+  traces:
+  - sensor: forecast_home_pressure
+    continuous: true
+- id: wind_speed_graph
+  duration: ${interval}
+  width: ${w}
+  height: 200
+  traces:
+  - sensor: forecast_home_wind_speed
+    continuous: true
+
+display:
+- platform: t547
+  id: display_t547
+  update_interval: 30s
+  pages:
+  - id: status_page
+    lambda: |-
+      it.strftime(it.get_width() - 2, ${extra_large}, id(roboto_extra_large), TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+      it.print(2, ${extra_large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "uptime:");
+      it.printf(it.get_width() - 2, ${extra_large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+
+      it.print(2, ${extra_large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "WiFi Signal:");
+      it.printf(it.get_width() - 2, ${extra_large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+
+      it.print(2, ${extra_large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "IP Address:");
+      it.printf(it.get_width() - 2, ${extra_large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+
+      it.print(2, ${extra_large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "Home Assistant:");
+      it.printf(it.get_width() - 2, ${extra_large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+
+      it.print(2, ${extra_large} + 5 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uE1C6");
+      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
+
+      it.print(2, ${extra_large} + 6 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uEF44");
+      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
+
+      it.printf(2, it.get_height() - 2, id(roboto_extra_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+  - id: graph_page
+    lambda: |-
+      it.strftime(it.get_width() - 2, ${extra_large}, id(roboto_extra_large), TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+      it.graph(2, 2 + ${extra_large}, id(temperature_graph));
+      it.graph(4 + ${w}, 2 + ${extra_large}, id(humidity_graph));
+      it.graph(6 + 2 * ${w}, 2 + ${extra_large}, id(cloud_coverage_graph));
+      it.graph(8 + 3 * ${w}, 2 + ${extra_large}, id(pressure_graph));
+      it.graph(10 + 4 * ${w}, 2 + ${extra_large}, id(wind_speed_graph));
+
+      it.print(2, ${extra_large} + 5 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uE1C6");
+      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
+
+      it.print(2, ${extra_large} + 6 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uEF44");
+      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
+
+      it.printf(2, it.get_height() - 2, id(roboto_extra_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+  - id: weather_page
+    lambda: |-
+      it.strftime(it.get_width() - 2, ${large}, id(roboto_large), TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
+
+      it.printf(2, ${large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_temperature).state, id(forecast_home_temperature_unit).state.c_str());
+      it.printf(2, ${large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_humidity).state);
+      it.printf(2, ${large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_pressure).state, id(forecast_home_pressure_unit).state.c_str());
+      it.printf(2, ${large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f °", id(forecast_home_wind_bearing).state);
+      it.printf(2, ${large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_wind_speed).state, id(forecast_home_wind_speed_unit).state.c_str());
+      it.printf(2, ${large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_cloud_coverage).state);
+      it.printf(2, ${large} + 7 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%s", id(forecast_home_state).state.c_str());
+
+      it.printf(2, it.get_height() - 2, id(roboto_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
+
+<<: !include common/font.yaml
+<<: !include common/base.yaml

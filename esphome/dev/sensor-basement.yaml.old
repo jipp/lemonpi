@@ -1,0 +1,51 @@
+substitutions:
+  devicename: sensor-basement
+  comment: Wemos D1 Mini Pro
+  name: woke.sensor-basement
+  version: 1.0.0
+
+esp8266:
+  board: d1_mini_pro
+
+globals:
+- id: total_pulses
+  type: int
+  initial_value: '0'
+
+<<: !include common/base.yaml
+
+text_sensor:
+- <<: !include common/text_sensor.yaml
+status_led:
+  pin:
+    number: D4
+    inverted: true
+sensor:
+- <<: !include common/sensor_uptime.yaml
+- <<: !include common/sensor_wifi_signal.yaml
+- platform: template
+  name: Gasverbrauch
+  device_class: gas
+  update_interval: 10s
+  unit_of_measurement: m³
+  state_class: total_increasing
+  icon: mdi:fire
+  accuracy_decimals: 2
+  lambda: !lambda |-
+    return id(total_pulses) * 0.01;
+binary_sensor:
+- <<: !include common/binary_sensor_status.yaml
+- platform: gpio
+  pin:
+    number: D3
+    inverted: true
+    mode:
+      input: true
+      pullup: true
+  name: Impuls
+  filters:
+  - delayed_on: 100ms
+  on_press:
+  - then:
+    - lambda: !lambda |-
+        id(total_pulses) += 1;

@@ -1,0 +1,3 @@
+- id: i2c_bus
+  sda: ${sda_pin}
+  scl: ${scl_pin}
