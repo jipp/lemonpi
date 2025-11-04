@@ -8,7 +8,6 @@ import json
 import time
 import tomllib
 
-
 def main():
   parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -29,7 +28,30 @@ def main():
   args = parser.parse_args()
 
   config = configparser.ConfigParser()
-  config.read(args.file)
+
+  if os.path.exists(args.file):
+    config.read(args.file)
+  else:
+    config['system'] = {}
+    config['system']['update'] = 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y'
+    config['system']['health'] = 'dmesg -e -l emerg --level=alert,crit,err,warn,notice'
+    config['system']['info'] = 'uname -a && uptime && df -h'
+    config['docker'] = {}
+    config['docker']['folder'] = '/home/woke/lemonpi/docker'
+    config['esphome'] = {}
+    config['esphome']['folder'] = '/home/woke/lemonpi/esphome'
+    config['minecraft'] = {}
+    config['minecraft']['identifier'] = 'minecraft-server'
+    config['backup'] = {}
+    config['backup']['src'] = '/docker'
+    config['backup']['dst'] = '/backup'
+    config['backup']['apps'] = 'certbot homeassistant nginx octoprint minecraft-server minecraft-server-small'
+    config['remote'] = {}
+    config['remote']['user'] = 'wolfgang.keller'
+    config['remote']['server'] = 'ds416play'
+    config['remote']['port'] = '221'
+    config['remote']['dst'] = 'lemonpi'
+    config.write(open(args.file, 'w'))
 
   system = {
     'health': config['system']['health'],
@@ -122,12 +144,15 @@ def run_backup(backup, remote, cmd):
           if os.system("cd "+backup['src']+" && sudo tar czf "+backup['dst']+"/"+app+".tgz "+app+" >/dev/null 2>&1") != 0:
             raise Exception("app modified during archiveing")
         except Exception as e:
-#          print(e)
-          print("nok")
+          print(e)
+#          print("nok")
         else:
           print("ok")
     case 'save':
-      os.system("scp -P "+remote['port']+" -O "+backup['dst']+"/* "+remote['user']+"@"+remote['server']+":"+remote['dst']+"/")
+      if os.system("ping -c 1 -w 1 "+remote['server']+" >/dev/null 2>&1") == 0:
+        os.system("scp -P "+remote['port']+" -O "+backup['dst']+"/* "+remote['user']+"@"+remote['server']+":"+remote['dst']+"/")
+      else:
+        print(remote['server']+" seems not reachable")
     case 'list':
       os.system("ls -lh "+backup['dst'])
 
