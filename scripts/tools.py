@@ -51,6 +51,11 @@ def main():
     config['remote']['server'] = 'ds416play'
     config['remote']['port'] = '221'
     config['remote']['dst'] = 'lemonpi'
+    config['local'] = {}
+    config['local']['user'] = 'woke'
+    config['local']['server'] = 'loaclhost'
+    config['local']['port'] = '22'
+    config['local']['dst'] = '/mnt/lemonpi'
     config.write(open(args.file, 'w'))
 
   system = {
@@ -78,6 +83,13 @@ def main():
     'port': config['remote']['port'],
     'dst': config['remote']['dst']
   }
+  local = {
+    'user': config['local']['user'],
+    'server': config['local']['server'],
+    'port': config['local']['port'],
+    'dst': config['local']['dst']
+  } 
+
 
   if args.system != None:
     run_system(args.system, system)
@@ -95,7 +107,7 @@ def main():
     run_minecraft(minecraft, args.minecraft)
 
   if args.backup != None:
-    run_backup(backup, remote, args.backup)
+    run_backup(backup, local, remote, args.backup)
 
   return
 
@@ -125,7 +137,7 @@ def run_minecraft(minecraft, cmd):
     print(server+":")
     os.system("docker exec -it "+server+" rcon-cli "+' '.join(cmd))
 
-def run_backup(backup, remote, cmd):
+def run_backup(backup, local, remote, cmd):
   if len(cmd) == 1:
     apps = backup['apps'].split()
   else:
@@ -148,7 +160,9 @@ def run_backup(backup, remote, cmd):
 #          print("nok")
         else:
           print("ok")
-    case 'save':
+    case 'local':
+      os.system("scp -P "+local['port']+" -O "+backup['dst']+"/* "+local['user']+"@"+local['server']+":"+local['dst']+"/")
+    case 'remote':
       if os.system("ping -c 1 -w 1 "+remote['server']+" >/dev/null 2>&1") == 0:
         os.system("scp -P "+remote['port']+" -O "+backup['dst']+"/* "+remote['user']+"@"+remote['server']+":"+remote['dst']+"/")
       else:
