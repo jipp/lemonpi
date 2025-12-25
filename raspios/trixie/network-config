@@ -1,0 +1,10 @@
+network:
+  version: 2
+  wifis:
+    wlan0:
+      dhcp4: true
+      regulatory-domain: "DE"
+      access-points:
+        "wobilix":
+          password: "49909842786a5568b0c916dcdd694d7081e999eac46d35340a07d70f2d3f2fb6"
+      optional: true

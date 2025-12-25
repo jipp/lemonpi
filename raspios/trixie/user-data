@@ -1,0 +1,25 @@
+#cloud-config
+hostname: pi5
+manage_etc_hosts: true
+packages:
+- avahi-daemon
+apt:
+  conf: |
+    Acquire {
+      Check-Date "false";
+    };
+timezone: Europe/Berlin
+keyboard:
+  model: pc105
+  layout: "de"
+enable_ssh: true
+users:
+- name: woke
+  groups: users,adm,dialout,audio,netdev,video,plugdev,cdrom,games,input,gpio,spi,i2c,render,sudo
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: $y$jB5$LhIRg7LAJxIJEtIMnlYJg/$otYjJN.9KgSTKSIBayVjFGcl62hnk.YF240KSu38zAA
+ssh_pwauth: true
+rpi:
+  interfaces:
+    serial: true

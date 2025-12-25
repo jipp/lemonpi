@@ -47,8 +47,8 @@ services:
       minecraft-server:
         condition: service_healthy
     environment:
-      BACKUP_INTERVAL: 12h
-      PRUNE_BACKUPS_COUNT: "14"
+      BACKUP_INTERVAL: 24h
+      PRUNE_BACKUPS_COUNT: "7"
       RCON_HOST: minecraft-server
       TZ: Europe/Berlin
     hostname: minecraft-backup
@@ -65,8 +65,8 @@ services:
       minecraft-server-small:
         condition: service_healthy
     environment:
-      BACKUP_INTERVAL: 12h
-      PRUNE_BACKUPS_COUNT: "14"
+      BACKUP_INTERVAL: 24h
+      PRUNE_BACKUPS_COUNT: "7"
       RCON_HOST: minecraft-server-small
       TZ: Europe/Berlin
     hostname: minecraft-backup-small
