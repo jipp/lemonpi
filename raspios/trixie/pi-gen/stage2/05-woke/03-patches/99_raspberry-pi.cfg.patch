@@ -1,0 +1,12 @@
+--- stage2.orig/rootfs/etc/cloud/cloud.cfg.d/99_raspberry-pi.cfg.orig	2025-12-22 13:39:35.453103422 +0100
++++ stage2/rootfs/etc/cloud/cloud.cfg.d/99_raspberry-pi.cfg	2025-12-22 14:22:50.761753038 +0100
+@@ -3,7 +3,8 @@
+ datasource_list: [ NoCloud, None ]
+ datasource:
+   NoCloud:
+-    seedfrom: file:///boot/firmware
++#    seedfrom: file:///boot/firmware
++    fs_label: bootfs
+ 
+ # Leave SSH key emission to console disabled so that
+ # users can decide whether to enable it manually.
