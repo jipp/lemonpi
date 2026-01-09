@@ -4,9 +4,6 @@ import configparser
 import argparse
 import subprocess
 import os
-#import json
-#import time
-#import tomllib
 
 def main():
   parser = argparse.ArgumentParser(
@@ -46,16 +43,20 @@ def main():
     config['backup']['src'] = '/docker'
     config['backup']['dst'] = '/backup'
     config['backup']['apps'] = 'certbot homeassistant nginx octoprint minecraft-server minecraft-server-small'
+    config['local'] = {}
+    config['local']['user'] = 'woke'
+    config['local']['server'] = 'localhost'
+    config['local']['port'] = '22'
+    config['local']['mnt'] = '/mnt'
+    config['local']['dst'] = '/mnt/lemonpi'
     config['remote'] = {}
     config['remote']['user'] = 'wolfgang.keller'
     config['remote']['server'] = 'ds416play'
     config['remote']['port'] = '221'
     config['remote']['dst'] = 'lemonpi'
-    config['local'] = {}
-    config['local']['user'] = 'woke'
-    config['local']['server'] = 'loaclhost'
-    config['local']['port'] = '22'
-    config['local']['dst'] = '/mnt/lemonpi'
+    config['settings'] = {}
+    config['settings']['files'] = '.ssh .gitconfig'
+    config['settings']['bkp'] = 'settings.tgz'
     config.write(open(args.file, 'w'))
 
   system = {
@@ -87,8 +88,13 @@ def main():
     'user': config['local']['user'],
     'server': config['local']['server'],
     'port': config['local']['port'],
+    'mnt': config['local']['mnt'],
     'dst': config['local']['dst']
   } 
+  settings = {
+    'files': config['settings']['files'],
+    'bkp': config['settings']['bkp']
+  }
 
 
   if args.system != None:
@@ -107,7 +113,7 @@ def main():
     run_minecraft(minecraft, args.minecraft)
 
   if args.backup != None:
-    run_backup(backup, local, remote, args.backup)
+    run_backup(backup, local, remote, settings, args.backup)
 
   return
 
@@ -137,7 +143,7 @@ def run_minecraft(minecraft, cmd):
     print(server+":")
     os.system("docker exec -it "+server+" rcon-cli "+' '.join(cmd))
 
-def run_backup(backup, local, remote, cmd):
+def run_backup(backup, local, remote, settings, cmd):
   if len(cmd) == 1:
     apps = backup['apps'].split()
   else:
@@ -157,11 +163,22 @@ def run_backup(backup, local, remote, cmd):
             raise Exception("app modified during archiveing")
         except Exception as e:
           print(e)
-#          print("nok")
         else:
           print("ok")
+    case 'settings':
+      if not os.path.isdir(backup['dst']):
+        print("dst folder does not exist: "+backup['dst'])
+        exit(1)
+      if os.system("cd && sudo tar czf "+backup['dst']+"/"+settings['bkp']+" "+settings['files']+" >/dev/null 2>&1") != 0:
+        raise Exception("app modified during archiveing")
     case 'local':
-      os.system("scp -P "+local['port']+" -O "+backup['dst']+"/* "+local['user']+"@"+local['server']+":"+local['dst']+"/")
+      if os.path.ismount(local['mnt']):
+        if os.path.exists(local['dst']):
+          os.system("scp -P "+local['port']+" -O "+backup['dst']+"/* "+local['user']+"@"+local['server']+":"+local['dst']+"/")
+        else:
+          print(local['dst']+" does not exist")
+      else:
+        print(local['mnt']+ " not mounted")
     case 'remote':
       if os.system("ping -c 1 -w 1 "+remote['server']+" >/dev/null 2>&1") == 0:
         os.system("scp -P "+remote['port']+" -O "+backup['dst']+"/* "+remote['user']+"@"+remote['server']+":"+remote['dst']+"/")
