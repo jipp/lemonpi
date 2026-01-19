@@ -32,7 +32,7 @@ def main():
     config['system'] = {}
     config['system']['update'] = 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y'
     config['system']['health'] = 'dmesg -e -l emerg --level=alert,crit,err,warn,notice'
-    config['system']['info'] = 'uname -a && uptime && df -h'
+    config['system']['info'] = 'uname -a && uptime && df -h && sudo rpi-eeprom-update'
     config['docker'] = {}
     config['docker']['folder'] = '/home/woke/lemonpi/docker'
     config['esphome'] = {}
