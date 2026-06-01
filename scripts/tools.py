@@ -2,10 +2,16 @@
 
 import configparser
 import argparse
+import glob
 import subprocess
+import sys
 import os
 
+verbose = False
+
 def main():
+  global verbose
+
   parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description="tool to maintain the system",
@@ -13,179 +19,210 @@ def main():
     epilog='this is work in progress'
   )
 
+  script_dir = os.path.dirname(os.path.abspath(__file__))
+  default_file = os.path.join(script_dir, 'tools.ini')
+
   parser.add_argument('-b', '--backup', nargs='+', help='<command> <app> <app>')
-  parser.add_argument('-c', '--certbot', nargs='+', help='example: \"renew --dry-run\"')
+  parser.add_argument('-c', '--certbot', nargs='+', help='example: "renew --dry-run"')
   parser.add_argument('-d', '--docker', nargs='+')
   parser.add_argument('-e', '--esphome', nargs='+', help='<command> <yaml-file>')
-  parser.add_argument('-f', '--file', nargs=1, default='tools.ini', help='config file')
+  parser.add_argument('-f', '--file', default=default_file, help='config file')
   parser.add_argument('-m', '--minecraft', nargs='+')
   parser.add_argument('-s', '--system', choices=['health', 'info', 'update'])
   parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
+  parser.add_argument('-V', '--verbose', action='store_true', help='show executed commands')
 
   args = parser.parse_args()
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    sys.exit(0)
+
+  verbose = args.verbose
 
   config = configparser.ConfigParser()
 
   if os.path.exists(args.file):
     config.read(args.file)
   else:
-    config['system'] = {}
-    config['system']['update'] = 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y'
-    config['system']['health'] = 'dmesg -e -l emerg --level=alert,crit,err,warn,notice'
-    config['system']['info'] = 'uname -a && uptime && df -h && sudo rpi-eeprom-update'
-    config['docker'] = {}
-    config['docker']['folder'] = '/home/woke/lemonpi/docker'
-    config['esphome'] = {}
-    config['esphome']['folder'] = '/home/woke/lemonpi/esphome'
-    config['minecraft'] = {}
-    config['minecraft']['identifier'] = 'minecraft-server'
-    config['backup'] = {}
-    config['backup']['src'] = '/docker'
-    config['backup']['dst'] = '/backup'
-    config['backup']['apps'] = 'certbot homeassistant nginx octoprint minecraft-server minecraft-server-small'
-    config['local'] = {}
-    config['local']['user'] = 'woke'
-    config['local']['server'] = 'localhost'
-    config['local']['port'] = '22'
-    config['local']['mnt'] = '/mnt'
-    config['local']['dst'] = '/mnt/lemonpi'
-    config['remote'] = {}
-    config['remote']['user'] = 'wolfgang.keller'
-    config['remote']['server'] = 'ds416play'
-    config['remote']['port'] = '221'
-    config['remote']['dst'] = 'lemonpi'
-    config['settings'] = {}
-    config['settings']['files'] = '.ssh .gitconfig'
-    config['settings']['bkp'] = 'settings.tgz'
-    config.write(open(args.file, 'w'))
+    create_default_config(args.file, config)
 
-  system = {
-    'health': config['system']['health'],
-    'info': config['system']['info'],
-    'update': config['system']['update'],
+  if args.system is not None:
+    require_section(config, 'system')
+    run_system(args.system, config)
+  if args.certbot is not None:
+    require_section(config, 'docker')
+    run_certbot(config, args.certbot)
+  if args.esphome is not None:
+    require_section(config, 'docker', 'esphome')
+    run_esphome(config, args.esphome)
+  if args.docker is not None:
+    require_section(config, 'docker')
+    run_docker(config, args.docker)
+  if args.minecraft is not None:
+    require_section(config, 'minecraft')
+    run_minecraft(config, args.minecraft)
+  if args.backup is not None:
+    require_section(config, 'backup', 'local', 'remote', 'settings')
+    run_backup(config, args.backup)
+
+
+def require_section(config, *sections):
+  for section in sections:
+    if section not in config:
+      print(f"Fehler: Sektion [{section}] fehlt in der Config-Datei", file=sys.stderr)
+      sys.exit(1)
+
+
+def create_default_config(path, config):
+  config['system'] = {
+    'update': 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y',
+    'health': 'dmesg -e -l emerg --level=alert,crit,err,warn,notice',
+    'info': 'uname -a && uptime && df -h && sudo rpi-eeprom-update',
   }
-  docker = {
-    'folder': config['docker']['folder']
+  config['docker'] = {'folder': '/home/woke/lemonpi/docker'}
+  config['esphome'] = {'folder': '/home/woke/lemonpi/esphome'}
+  config['minecraft'] = {'identifier': 'minecraft-server'}
+  config['backup'] = {
+    'src': '/docker',
+    'dst': '/backup',
+    'apps': 'certbot homeassistant nginx octoprint minecraft-server minecraft-server-small',
   }
-  esphome = {
-    'folder': config['esphome']['folder']
+  config['local'] = {
+    'user': 'woke',
+    'server': 'localhost',
+    'port': '22',
+    'mnt': '/mnt',
+    'dst': '/mnt/lemonpi',
   }
-  minecraft = {
-    'identifier': config['minecraft']['identifier']
+  config['remote'] = {
+    'user': 'wolfgang.keller',
+    'server': 'ds416play',
+    'port': '221',
+    'dst': 'lemonpi',
   }
-  backup = {
-    'src': config['backup']['src'],
-    'dst': config['backup']['dst'],
-    'apps': config['backup']['apps']
-  }
-  remote = {
-    'user': config['remote']['user'],
-    'server': config['remote']['server'],
-    'port': config['remote']['port'],
-    'dst': config['remote']['dst']
-  }
-  local = {
-    'user': config['local']['user'],
-    'server': config['local']['server'],
-    'port': config['local']['port'],
-    'mnt': config['local']['mnt'],
-    'dst': config['local']['dst']
-  } 
-  settings = {
-    'files': config['settings']['files'],
-    'bkp': config['settings']['bkp']
-  }
+  config['settings'] = {'files': '.ssh .gitconfig', 'bkp': 'settings.tgz'}
+  with open(path, 'w') as f:
+    config.write(f)
 
 
-  if args.system != None:
-    run_system(args.system, system)
+def run(cmd, **kwargs):
+  if verbose:
+    display = ' '.join(cmd) if isinstance(cmd, list) else cmd
+    print(f"  > {display}", file=sys.stderr)
+  result = subprocess.run(cmd, **kwargs)
+  if result.returncode != 0:
+    print(f"Fehler: {' '.join(cmd) if isinstance(cmd, list) else cmd}", file=sys.stderr)
+    sys.exit(result.returncode)
 
-  if args.certbot != None:
-    run_certbot(docker, args.certbot)
 
-  if args.esphome != None:
-    run_esphome(esphome, docker, args.esphome)
+def run_system(cmd, config):
+  run(config['system'][cmd], shell=True)
 
-  if args.docker != None:
-    run_docker(docker, args.docker)
 
-  if args.minecraft != None:
-    run_minecraft(minecraft, args.minecraft)
+def run_certbot(config, cmd):
+  folder = config['docker']['folder']
+  run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, cwd=folder)
+  run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], cwd=folder)
+  run(["docker", "compose", "down", "certbot"], cwd=folder)
 
-  if args.backup != None:
-    run_backup(backup, local, remote, settings, args.backup)
 
-  return
+def run_esphome(config, cmd):
+  folder = config['docker']['folder']
+  esphome_folder = config['esphome']['folder']
+  run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, cwd=esphome_folder)
 
-def run_system(cmd, system):
-  os.system(system[cmd])
 
-def run_certbot(docker, cmd):
-  os.system("cd "+docker['folder']+" && docker compose run --rm -p 8080:80 certbot "+' '.join(cmd))
-  os.system("cd "+docker['folder']+" && docker compose exec -it nginx nginx -s reload")
-  os.system("cd "+docker['folder']+" && docker compose down certbot")
-
-def run_esphome(esphome, docker, cmd):
-  os.system("cd "+esphome['folder']+" && docker compose --project-directory "+docker['folder']+" run --rm esphome "+' '.join(cmd))
-
-def run_docker(docker, cmd):
+def run_docker(config, cmd):
+  folder = config['docker']['folder']
+  cmd = [arg for c in cmd for arg in c.split()]
   match cmd[0]:
     case "prune":
-      os.system("docker system prune -f")
+      run(["docker", "system", "prune", "-f"])
     case "pull":
-      os.system("cd "+docker['folder']+" && docker compose --profile manual "+' '.join(cmd))
+      run(["docker", "compose", "--profile", "manual"] + cmd, cwd=folder)
     case _:
-      os.system("cd "+docker['folder']+" && docker compose "+' '.join(cmd))
+      run(["docker", "compose"] + cmd, cwd=folder)
 
-def run_minecraft(minecraft, cmd):
-  servers = subprocess.run(["docker ps -a --filter status=running --format {{.Names}} --filter name="+minecraft['identifier']], shell=True, capture_output=True, text=True).stdout.split()
+
+def run_minecraft(config, cmd):
+  identifier = config['minecraft']['identifier']
+  result = subprocess.run(
+    ["docker", "ps", "-a", "--filter", "status=running", "--format", "{{.Names}}", "--filter", f"name={identifier}"],
+    capture_output=True, text=True
+  )
+  servers = result.stdout.split()
   for server in servers:
-    print(server+":")
-    os.system("docker exec -it "+server+" rcon-cli "+' '.join(cmd))
+    print(f"{server}:")
+    subprocess.run(["docker", "exec", server, "rcon-cli"] + cmd)
 
-def run_backup(backup, local, remote, settings, cmd):
-  if len(cmd) == 1:
-    apps = backup['apps'].split()
-  else:
-    apps = cmd.copy()
-    apps.pop(0)
+
+def run_backup(config, cmd):
+  backup = config['backup']
+  local = config['local']
+  remote = config['remote']
+  settings = config['settings']
+
+  valid_commands = ('execute', 'settings', 'local', 'remote', 'list')
+  if cmd[0] not in valid_commands:
+    print(f"Fehler: unbekannter Backup-Befehl '{cmd[0]}'. Erlaubt: {', '.join(valid_commands)}", file=sys.stderr)
+    sys.exit(1)
+
+  apps = backup['apps'].split() if len(cmd) == 1 else cmd[1:]
+
   match cmd[0]:
     case 'execute':
       if not os.path.isdir(backup['dst']):
-        print("dst folder does not exist: "+backup['dst'])
-        exit(1)
+        print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
+        sys.exit(1)
       for app in apps:
         print(f"{app:25}", end="", flush=True)
-        try:
-          if not os.path.isdir(backup['src']+"/"+app):
-            raise Exception("app does not exist")
-          if os.system("cd "+backup['src']+" && sudo tar czf "+backup['dst']+"/"+app+".tgz "+app+" >/dev/null 2>&1") != 0:
-            raise Exception("app modified during archiveing")
-        except Exception as e:
-          print(e)
-        else:
-          print("ok")
+        src_path = os.path.join(backup['src'], app)
+        if not os.path.isdir(src_path):
+          print("app does not exist")
+          continue
+        result = subprocess.run(
+          ["sudo", "tar", "czf", os.path.join(backup['dst'], f"{app}.tgz"), app],
+          cwd=backup['src'], capture_output=True
+        )
+        print("ok" if result.returncode == 0 else "app modified during archiving")
+
     case 'settings':
       if not os.path.isdir(backup['dst']):
-        print("dst folder does not exist: "+backup['dst'])
-        exit(1)
-      if os.system("cd && sudo tar czf "+backup['dst']+"/"+settings['bkp']+" "+settings['files']+" >/dev/null 2>&1") != 0:
-        raise Exception("app modified during archiveing")
+        print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
+        sys.exit(1)
+      home = os.path.expanduser("~")
+      result = subprocess.run(
+        ["sudo", "tar", "czf", os.path.join(backup['dst'], settings['bkp'])] + settings['files'].split(),
+        cwd=home, capture_output=True
+      )
+      if result.returncode != 0:
+        print("Fehler beim Sichern der Settings", file=sys.stderr)
+        sys.exit(1)
+
     case 'local':
-      if os.path.ismount(local['mnt']):
-        if os.path.exists(local['dst']):
-          os.system("scp -P "+local['port']+" -O "+backup['dst']+"/* "+local['user']+"@"+local['server']+":"+local['dst']+"/")
-        else:
-          print(local['dst']+" does not exist")
-      else:
-        print(local['mnt']+ " not mounted")
+      if not os.path.ismount(local['mnt']):
+        print(f"{local['mnt']} not mounted")
+        return
+      if not os.path.exists(local['dst']):
+        print(f"{local['dst']} does not exist")
+        return
+      files = glob.glob(os.path.join(backup['dst'], '*'))
+      if files:
+        run(["scp", "-P", local['port'], "-O"] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"])
+
     case 'remote':
-      if os.system("ping -c 1 -w 1 "+remote['server']+" >/dev/null 2>&1") == 0:
-        os.system("scp -P "+remote['port']+" -O "+backup['dst']+"/* "+remote['user']+"@"+remote['server']+":"+remote['dst']+"/")
-      else:
-        print(remote['server']+" seems not reachable")
+      result = subprocess.run(["ping", "-c", "1", "-w", "1", remote['server']], capture_output=True)
+      if result.returncode != 0:
+        print(f"{remote['server']} seems not reachable")
+        return
+      files = glob.glob(os.path.join(backup['dst'], '*'))
+      if files:
+        run(["scp", "-P", remote['port'], "-O"] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"])
+
     case 'list':
-      os.system("ls -lh "+backup['dst'])
+      run(["ls", "-lh", backup['dst']])
+
 
 if __name__ == "__main__":
   main()
