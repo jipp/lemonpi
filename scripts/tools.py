@@ -3,6 +3,8 @@
 import configparser
 import argparse
 import glob
+import shlex
+import shutil
 import subprocess
 import sys
 import os
@@ -49,21 +51,35 @@ def main():
 
   if args.system is not None:
     require_section(config, 'system')
+    require_keys(config, 'system', args.system)
     run_system(args.system, config)
   if args.certbot is not None:
     require_section(config, 'docker')
+    require_keys(config, 'docker', 'folder')
+    require_docker()
     run_certbot(config, args.certbot)
   if args.esphome is not None:
     require_section(config, 'docker', 'esphome')
+    require_keys(config, 'docker', 'folder')
+    require_keys(config, 'esphome', 'folder')
+    require_docker()
     run_esphome(config, args.esphome)
   if args.docker is not None:
     require_section(config, 'docker')
+    require_keys(config, 'docker', 'folder')
+    require_docker()
     run_docker(config, args.docker)
   if args.minecraft is not None:
     require_section(config, 'minecraft')
+    require_keys(config, 'minecraft', 'identifier')
+    require_docker()
     run_minecraft(config, args.minecraft)
   if args.backup is not None:
     require_section(config, 'backup', 'local', 'remote', 'settings')
+    require_keys(config, 'backup', 'src', 'dst', 'apps')
+    require_keys(config, 'local', 'user', 'server', 'port', 'mnt', 'dst')
+    require_keys(config, 'remote', 'user', 'server', 'port', 'dst')
+    require_keys(config, 'settings', 'files', 'bkp')
     run_backup(config, args.backup)
 
 
@@ -72,6 +88,19 @@ def require_section(config, *sections):
     if section not in config:
       print(f"Error: section [{section}] missing in config file", file=sys.stderr)
       sys.exit(1)
+
+
+def require_keys(config, section, *keys):
+  for key in keys:
+    if key not in config[section]:
+      print(f"Error: key '{key}' missing in section [{section}]", file=sys.stderr)
+      sys.exit(1)
+
+
+def require_docker():
+  if shutil.which("docker") is None:
+    print("Error: docker is not installed or not in PATH", file=sys.stderr)
+    sys.exit(1)
 
 
 def create_default_config(path, config):
@@ -107,7 +136,7 @@ def create_default_config(path, config):
 
 
 def split_args(cmd):
-  return [arg for c in cmd for arg in c.split()]
+  return [arg for c in cmd for arg in shlex.split(c)]
 
 
 def run(cmd, **kwargs):
@@ -234,4 +263,8 @@ def run_backup(config, cmd):
 
 
 if __name__ == "__main__":
-  main()
+  try:
+    main()
+  except KeyboardInterrupt:
+    print("\nAborted.", file=sys.stderr)
+    sys.exit(130)
