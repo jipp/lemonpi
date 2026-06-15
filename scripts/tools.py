@@ -15,10 +15,20 @@ def main():
   global verbose
 
   parser = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
     description="tool to maintain the system",
     usage='%(prog)s [options]',
-    epilog='this is work in progress'
+    epilog='''examples:
+  %(prog)s -s update                  system update
+  %(prog)s -d "ps -a"                 docker compose ps -a
+  %(prog)s -d prune                   docker system prune
+  %(prog)s -c "renew --dry-run"       certbot dry run
+  %(prog)s -e "run config.yaml"       esphome run
+  %(prog)s -m "say hello"             minecraft rcon command
+  %(prog)s -b execute                 backup all apps
+  %(prog)s -b execute nginx           backup single app
+  %(prog)s -b local                   copy backups to local mount
+  %(prog)s -b remote                  copy backups to remote server'''
   )
 
   script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -213,17 +223,25 @@ def run_backup(config, cmd):
       if not os.path.isdir(backup['dst']):
         print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
         sys.exit(1)
+      ok, skipped = 0, 0
       for app in apps:
         print(f"{app:25}", end="", flush=True)
         src_path = os.path.join(backup['src'], app)
         if not os.path.isdir(src_path):
           print("app does not exist")
+          skipped += 1
           continue
         result = subprocess.run(
           ["sudo", "tar", "czf", os.path.join(backup['dst'], f"{app}.tgz"), app],
           cwd=backup['src'], capture_output=True
         )
-        print("ok" if result.returncode == 0 else "app modified during archiving")
+        if result.returncode == 0:
+          print("ok")
+          ok += 1
+        else:
+          print("app modified during archiving")
+          ok += 1
+      print(f"\n{ok}/{ok + skipped} apps backed up, {skipped} skipped")
 
     case 'settings':
       if not os.path.isdir(backup['dst']):
