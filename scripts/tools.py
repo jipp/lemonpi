@@ -70,7 +70,7 @@ def main():
 def require_section(config, *sections):
   for section in sections:
     if section not in config:
-      print(f"Fehler: Sektion [{section}] fehlt in der Config-Datei", file=sys.stderr)
+      print(f"Error: section [{section}] missing in config file", file=sys.stderr)
       sys.exit(1)
 
 
@@ -106,13 +106,17 @@ def create_default_config(path, config):
     config.write(f)
 
 
+def split_args(cmd):
+  return [arg for c in cmd for arg in c.split()]
+
+
 def run(cmd, **kwargs):
   if verbose:
     display = ' '.join(cmd) if isinstance(cmd, list) else cmd
     print(f"  > {display}", file=sys.stderr)
   result = subprocess.run(cmd, **kwargs)
   if result.returncode != 0:
-    print(f"Fehler: {' '.join(cmd) if isinstance(cmd, list) else cmd}", file=sys.stderr)
+    print(f"Error: {' '.join(cmd) if isinstance(cmd, list) else cmd}", file=sys.stderr)
     sys.exit(result.returncode)
 
 
@@ -122,7 +126,7 @@ def run_system(cmd, config):
 
 def run_certbot(config, cmd):
   folder = config['docker']['folder']
-  cmd = [arg for c in cmd for arg in c.split()]
+  cmd = split_args(cmd)
   run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, cwd=folder)
   run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], cwd=folder)
   run(["docker", "compose", "down", "certbot"], cwd=folder)
@@ -131,13 +135,13 @@ def run_certbot(config, cmd):
 def run_esphome(config, cmd):
   folder = config['docker']['folder']
   esphome_folder = config['esphome']['folder']
-  cmd = [arg for c in cmd for arg in c.split()]
+  cmd = split_args(cmd)
   run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, cwd=esphome_folder)
 
 
 def run_docker(config, cmd):
   folder = config['docker']['folder']
-  cmd = [arg for c in cmd for arg in c.split()]
+  cmd = split_args(cmd)
   match cmd[0]:
     case "prune":
       run(["docker", "system", "prune", "-f"])
@@ -149,7 +153,7 @@ def run_docker(config, cmd):
 
 def run_minecraft(config, cmd):
   identifier = config['minecraft']['identifier']
-  cmd = [arg for c in cmd for arg in c.split()]
+  cmd = split_args(cmd)
   result = subprocess.run(
     ["docker", "ps", "-a", "--filter", "status=running", "--format", "{{.Names}}", "--filter", f"name={identifier}"],
     capture_output=True, text=True
@@ -166,11 +170,11 @@ def run_backup(config, cmd):
   remote = config['remote']
   settings = config['settings']
 
-  cmd = [arg for c in cmd for arg in c.split()]
+  cmd = split_args(cmd)
 
   valid_commands = ('execute', 'settings', 'local', 'remote', 'list')
   if cmd[0] not in valid_commands:
-    print(f"Fehler: unbekannter Backup-Befehl '{cmd[0]}'. Erlaubt: {', '.join(valid_commands)}", file=sys.stderr)
+    print(f"Error: unknown backup command '{cmd[0]}'. Allowed: {', '.join(valid_commands)}", file=sys.stderr)
     sys.exit(1)
 
   apps = backup['apps'].split() if len(cmd) == 1 else cmd[1:]
@@ -202,7 +206,7 @@ def run_backup(config, cmd):
         cwd=home, capture_output=True
       )
       if result.returncode != 0:
-        print("Fehler beim Sichern der Settings", file=sys.stderr)
+        print("Error backing up settings", file=sys.stderr)
         sys.exit(1)
 
     case 'local':
