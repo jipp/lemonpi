@@ -9,11 +9,8 @@ import subprocess
 import sys
 import os
 
-verbose = False
 
 def main():
-  global verbose
-
   parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description="tool to maintain the system",
@@ -40,6 +37,7 @@ def main():
   parser.add_argument('-e', '--esphome', nargs='+', help='<command> <yaml-file>')
   parser.add_argument('-f', '--file', default=default_file, help='config file')
   parser.add_argument('-m', '--minecraft', nargs='+')
+  parser.add_argument('-n', '--dry-run', action='store_true', help='show commands without executing')
   parser.add_argument('-s', '--system', choices=['health', 'info', 'update'])
   parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
   parser.add_argument('-V', '--verbose', action='store_true', help='show executed commands')
@@ -50,7 +48,7 @@ def main():
     parser.print_help()
     sys.exit(0)
 
-  verbose = args.verbose
+  options = argparse.Namespace(verbose=args.verbose, dry_run=args.dry_run)
 
   config = configparser.ConfigParser()
 
@@ -62,35 +60,35 @@ def main():
   if args.system is not None:
     require_section(config, 'system')
     require_keys(config, 'system', args.system)
-    run_system(args.system, config)
+    run_system(args.system, config, options)
   if args.certbot is not None:
     require_section(config, 'docker')
     require_keys(config, 'docker', 'folder')
     require_docker()
-    run_certbot(config, args.certbot)
+    run_certbot(config, args.certbot, options)
   if args.esphome is not None:
     require_section(config, 'docker', 'esphome')
     require_keys(config, 'docker', 'folder')
     require_keys(config, 'esphome', 'folder')
     require_docker()
-    run_esphome(config, args.esphome)
+    run_esphome(config, args.esphome, options)
   if args.docker is not None:
     require_section(config, 'docker')
     require_keys(config, 'docker', 'folder')
     require_docker()
-    run_docker(config, args.docker)
+    run_docker(config, args.docker, options)
   if args.minecraft is not None:
     require_section(config, 'minecraft')
     require_keys(config, 'minecraft', 'identifier')
     require_docker()
-    run_minecraft(config, args.minecraft)
+    run_minecraft(config, args.minecraft, options)
   if args.backup is not None:
     require_section(config, 'backup', 'local', 'remote', 'settings')
     require_keys(config, 'backup', 'src', 'dst', 'apps')
     require_keys(config, 'local', 'user', 'server', 'port', 'mnt', 'dst')
     require_keys(config, 'remote', 'user', 'server', 'port', 'dst')
     require_keys(config, 'settings', 'files', 'bkp')
-    run_backup(config, args.backup)
+    run_backup(config, args.backup, options)
 
 
 def require_section(config, *sections):
@@ -149,48 +147,50 @@ def split_args(cmd):
   return [arg for c in cmd for arg in shlex.split(c)]
 
 
-def run(cmd, **kwargs):
-  if verbose:
-    display = ' '.join(cmd) if isinstance(cmd, list) else cmd
+def run(cmd, options, **kwargs):
+  display = ' '.join(cmd) if isinstance(cmd, list) else cmd
+  if options.verbose or options.dry_run:
     print(f"  > {display}", file=sys.stderr)
+  if options.dry_run:
+    return
   result = subprocess.run(cmd, **kwargs)
   if result.returncode != 0:
-    print(f"Error: {' '.join(cmd) if isinstance(cmd, list) else cmd}", file=sys.stderr)
+    print(f"Error: {display}", file=sys.stderr)
     sys.exit(result.returncode)
 
 
-def run_system(cmd, config):
-  run(config['system'][cmd], shell=True)
+def run_system(cmd, config, options):
+  run(config['system'][cmd], options, shell=True)
 
 
-def run_certbot(config, cmd):
+def run_certbot(config, cmd, options):
   folder = config['docker']['folder']
   cmd = split_args(cmd)
-  run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, cwd=folder)
-  run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], cwd=folder)
-  run(["docker", "compose", "down", "certbot"], cwd=folder)
+  run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, options, cwd=folder)
+  run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], options, cwd=folder)
+  run(["docker", "compose", "down", "certbot"], options, cwd=folder)
 
 
-def run_esphome(config, cmd):
+def run_esphome(config, cmd, options):
   folder = config['docker']['folder']
   esphome_folder = config['esphome']['folder']
   cmd = split_args(cmd)
-  run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, cwd=esphome_folder)
+  run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, options, cwd=esphome_folder)
 
 
-def run_docker(config, cmd):
+def run_docker(config, cmd, options):
   folder = config['docker']['folder']
   cmd = split_args(cmd)
   match cmd[0]:
     case "prune":
-      run(["docker", "system", "prune", "-f"] + cmd[1:])
+      run(["docker", "system", "prune", "-f"] + cmd[1:], options)
     case "pull":
-      run(["docker", "compose", "--profile", "manual"] + cmd, cwd=folder)
+      run(["docker", "compose", "--profile", "manual"] + cmd, options, cwd=folder)
     case _:
-      run(["docker", "compose"] + cmd, cwd=folder)
+      run(["docker", "compose"] + cmd, options, cwd=folder)
 
 
-def run_minecraft(config, cmd):
+def run_minecraft(config, cmd, options):
   identifier = config['minecraft']['identifier']
   cmd = split_args(cmd)
   result = subprocess.run(
@@ -200,10 +200,10 @@ def run_minecraft(config, cmd):
   servers = result.stdout.split()
   for server in servers:
     print(f"{server}:")
-    run(["docker", "exec", server, "rcon-cli"] + cmd)
+    run(["docker", "exec", server, "rcon-cli"] + cmd, options)
 
 
-def run_backup(config, cmd):
+def run_backup(config, cmd, options):
   backup = config['backup']
   local = config['local']
   remote = config['remote']
@@ -231,16 +231,19 @@ def run_backup(config, cmd):
           print("app does not exist")
           skipped += 1
           continue
-        result = subprocess.run(
-          ["sudo", "tar", "czf", os.path.join(backup['dst'], f"{app}.tgz"), app],
-          cwd=backup['src'], capture_output=True
-        )
-        if result.returncode == 0:
-          print("ok")
+        tar_cmd = ["sudo", "tar", "czf", os.path.join(backup['dst'], f"{app}.tgz"), app]
+        if options.dry_run:
+          run(tar_cmd, options)
+          print("dry-run")
           ok += 1
         else:
-          print("app modified during archiving")
-          ok += 1
+          result = subprocess.run(tar_cmd, cwd=backup['src'], capture_output=True)
+          if result.returncode == 0:
+            print("ok")
+            ok += 1
+          else:
+            print("app modified during archiving")
+            ok += 1
       print(f"\n{ok}/{ok + skipped} apps backed up, {skipped} skipped")
 
     case 'settings':
@@ -248,13 +251,14 @@ def run_backup(config, cmd):
         print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
         sys.exit(1)
       home = os.path.expanduser("~")
-      result = subprocess.run(
-        ["sudo", "tar", "czf", os.path.join(backup['dst'], settings['bkp'])] + settings['files'].split(),
-        cwd=home, capture_output=True
-      )
-      if result.returncode != 0:
-        print("Error backing up settings", file=sys.stderr)
-        sys.exit(1)
+      tar_cmd = ["sudo", "tar", "czf", os.path.join(backup['dst'], settings['bkp'])] + settings['files'].split()
+      if options.dry_run:
+        run(tar_cmd, options)
+      else:
+        result = subprocess.run(tar_cmd, cwd=home, capture_output=True)
+        if result.returncode != 0:
+          print("Error backing up settings", file=sys.stderr)
+          sys.exit(1)
 
     case 'local':
       if not os.path.ismount(local['mnt']):
@@ -265,7 +269,7 @@ def run_backup(config, cmd):
         sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
-        run(["scp", "-P", local['port'], "-O"] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"])
+        run(["scp", "-P", local['port'], "-O"] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"], options)
 
     case 'remote':
       result = subprocess.run(["ping", "-c", "1", "-w", "1", remote['server']], capture_output=True)
@@ -274,10 +278,10 @@ def run_backup(config, cmd):
         sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
-        run(["scp", "-P", remote['port'], "-O"] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"])
+        run(["scp", "-P", remote['port'], "-O"] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"], options)
 
     case 'list':
-      run(["ls", "-lh", backup['dst']])
+      run(["ls", "-lh", backup['dst']], options)
 
 
 if __name__ == "__main__":
