@@ -122,6 +122,7 @@ def run_system(cmd, config):
 
 def run_certbot(config, cmd):
   folder = config['docker']['folder']
+  cmd = [arg for c in cmd for arg in c.split()]
   run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, cwd=folder)
   run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], cwd=folder)
   run(["docker", "compose", "down", "certbot"], cwd=folder)
@@ -130,6 +131,7 @@ def run_certbot(config, cmd):
 def run_esphome(config, cmd):
   folder = config['docker']['folder']
   esphome_folder = config['esphome']['folder']
+  cmd = [arg for c in cmd for arg in c.split()]
   run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, cwd=esphome_folder)
 
 
@@ -147,6 +149,7 @@ def run_docker(config, cmd):
 
 def run_minecraft(config, cmd):
   identifier = config['minecraft']['identifier']
+  cmd = [arg for c in cmd for arg in c.split()]
   result = subprocess.run(
     ["docker", "ps", "-a", "--filter", "status=running", "--format", "{{.Names}}", "--filter", f"name={identifier}"],
     capture_output=True, text=True
@@ -162,6 +165,8 @@ def run_backup(config, cmd):
   local = config['local']
   remote = config['remote']
   settings = config['settings']
+
+  cmd = [arg for c in cmd for arg in c.split()]
 
   valid_commands = ('execute', 'settings', 'local', 'remote', 'list')
   if cmd[0] not in valid_commands:
