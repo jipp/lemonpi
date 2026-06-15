@@ -183,7 +183,7 @@ def run_docker(config, cmd):
   cmd = split_args(cmd)
   match cmd[0]:
     case "prune":
-      run(["docker", "system", "prune", "-f"])
+      run(["docker", "system", "prune", "-f"] + cmd[1:])
     case "pull":
       run(["docker", "compose", "--profile", "manual"] + cmd, cwd=folder)
     case _:
@@ -200,7 +200,7 @@ def run_minecraft(config, cmd):
   servers = result.stdout.split()
   for server in servers:
     print(f"{server}:")
-    subprocess.run(["docker", "exec", server, "rcon-cli"] + cmd)
+    run(["docker", "exec", server, "rcon-cli"] + cmd)
 
 
 def run_backup(config, cmd):
@@ -258,11 +258,11 @@ def run_backup(config, cmd):
 
     case 'local':
       if not os.path.ismount(local['mnt']):
-        print(f"{local['mnt']} not mounted")
-        return
+        print(f"Error: {local['mnt']} not mounted", file=sys.stderr)
+        sys.exit(1)
       if not os.path.exists(local['dst']):
-        print(f"{local['dst']} does not exist")
-        return
+        print(f"Error: {local['dst']} does not exist", file=sys.stderr)
+        sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
         run(["scp", "-P", local['port'], "-O"] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"])
@@ -270,8 +270,8 @@ def run_backup(config, cmd):
     case 'remote':
       result = subprocess.run(["ping", "-c", "1", "-w", "1", remote['server']], capture_output=True)
       if result.returncode != 0:
-        print(f"{remote['server']} seems not reachable")
-        return
+        print(f"Error: {remote['server']} not reachable", file=sys.stderr)
+        sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
         run(["scp", "-P", remote['port'], "-O"] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"])
