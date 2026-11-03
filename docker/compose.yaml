@@ -35,7 +35,7 @@ services:
       test:
         - CMD-SHELL
         - curl http://127.0.0.1:8123 -s -o /dev/null > /dev/null 2>&1
-    image: homeassistant/home-assistant:latest
+    image: homeassistant/home-assistant
     network_mode: host
     restart: unless-stopped
     volumes:
@@ -128,8 +128,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - curl http://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
-        - curl https://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
+        - curl -sf http://127.0.0.1 -o /dev/null && curl -sfk https://127.0.0.1 -o /dev/null
     image: nginx
     network_mode: host
     restart: unless-stopped

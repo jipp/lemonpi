@@ -24,11 +24,15 @@ substitutions:
   rx_pin: GPIO16
   binary_sensor_gas: GPIO21
   energy_use: 1-0:1.8.0
-  energy_use_unit: Wh
-  energy_use_factor: '0.00001'
+#  energy_use_unit: Wh
+#  energy_use_factor: '0.00001'
+  energy_use_unit: kWh
+  energy_use_factor: '1'
   energy_win: 1-0:2.8.0
-  energy_win_unit: Wh
-  energy_win_factor: '0.00001'
+#  energy_win_unit: Wh
+#  energy_win_factor: '0.00001'
+  energy_win_unit: kWh
+  energy_win_factor: '1'
   power: 1-0:16.7.0
   power_unit: W
   power_factor: '0.01'

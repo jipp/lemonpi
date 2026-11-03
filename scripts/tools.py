@@ -150,7 +150,9 @@ def split_args(cmd):
 def run(cmd, options, **kwargs):
   display = ' '.join(cmd) if isinstance(cmd, list) else cmd
   if options.verbose or options.dry_run:
-    print(f"  > {display}", file=sys.stderr)
+    if 'cwd' in kwargs:
+      print(f"  cd {kwargs['cwd']} &&", file=sys.stderr)
+    print(f"  {display}", file=sys.stderr)
   if options.dry_run:
     return
   result = subprocess.run(cmd, **kwargs)
@@ -175,7 +177,7 @@ def run_esphome(config, cmd, options):
   folder = config['docker']['folder']
   esphome_folder = config['esphome']['folder']
   cmd = split_args(cmd)
-  run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, options, cwd=esphome_folder)
+  run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, options, cwd=esphome_folder, env={**os.environ, 'PWD': esphome_folder})
 
 
 def run_docker(config, cmd, options):
@@ -290,3 +292,4 @@ if __name__ == "__main__":
   except KeyboardInterrupt:
     print("\nAborted.", file=sys.stderr)
     sys.exit(130)
+
