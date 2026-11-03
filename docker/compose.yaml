@@ -1,4 +1,12 @@
 name: lemonpi
+
+# Reusable log-rotation defaults to keep container logs from filling the SD card.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   certbot:
     container_name: certbot
@@ -34,10 +42,15 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - curl http://127.0.0.1:8123 -s -o /dev/null > /dev/null 2>&1
+        - curl -sf http://127.0.0.1:8123 -o /dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     image: homeassistant/home-assistant
     network_mode: host
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/homeassistant/config:/config
       - /run/dbus:/run/dbus:ro
@@ -55,7 +68,8 @@ services:
     image: itzg/mc-backup
     networks:
       minecraft: null
-    restart: always
+    restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/minecraft-server/data:/data:ro
       - /docker/minecraft-backups:/backups
@@ -73,12 +87,17 @@ services:
     image: itzg/mc-backup
     networks:
       minecraft-small: null
-    restart: always
+    restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/minecraft-server-small/data:/data:ro
       - /docker/minecraft-backups-small:/backups
   minecraft-server:
     container_name: minecraft-server
+    deploy:
+      resources:
+        limits:
+          memory: 10G
     environment:
       EULA: "TRUE"
       INIT_MEMORY: 1G
@@ -88,16 +107,29 @@ services:
       USE_AIKAR_FLAGS: "true"
       VERSION: LATEST
     hostname: minecraft-server
+    healthcheck:
+      test:
+        - CMD
+        - mc-health
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 2m
     image: itzg/minecraft-server
     networks:
       minecraft: null
     ports:
       - 25565:25565
-    restart: always
+    restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/minecraft-server/data:/data
   minecraft-server-small:
     container_name: minecraft-server-small
+    deploy:
+      resources:
+        limits:
+          memory: 6G
     environment:
       EULA: "TRUE"
       INIT_MEMORY: 1G
@@ -107,12 +139,21 @@ services:
       USE_AIKAR_FLAGS: "true"
       VERSION: LATEST
     hostname: minecraft-server-small
+    healthcheck:
+      test:
+        - CMD
+        - mc-health
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 2m
     image: itzg/minecraft-server
     networks:
       minecraft-small: null
     ports:
       - 25566:25565
-    restart: always
+    restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/minecraft-server-small/data:/data
   nginx:
@@ -129,11 +170,18 @@ services:
       test:
         - CMD-SHELL
         - curl -sf http://127.0.0.1 -o /dev/null && curl -sfk https://127.0.0.1 -o /dev/null
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     image: nginx
     network_mode: host
     restart: unless-stopped
+    logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
     volumes:
-      - /docker/nginx/conf.d:/etc/nginx/conf.d
+      - /docker/nginx/conf.d:/etc/nginx/conf.d:ro
       - /docker/certbot/etc/letsencrypt:/etc/letsencrypt:ro
   octoprint:
     container_name: octoprint
@@ -149,13 +197,18 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - curl http://127.0.0.1 -s -o /dev/null > /dev/null 2>&1
+        - curl -sf http://127.0.0.1 -o /dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     image: octoprint/octoprint
     networks:
       octoprint: null
     ports:
-      - 88:80
+      - "127.0.0.1:88:80"
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       - /docker/octoprint/octoprint:/octoprint
 networks:
