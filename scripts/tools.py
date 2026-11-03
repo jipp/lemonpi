@@ -2,6 +2,7 @@
 
 import configparser
 import argparse
+import datetime
 import glob
 import shlex
 import shutil
@@ -62,8 +63,9 @@ def main():
     require_keys(config, 'system', args.system)
     run_system(args.system, config, options)
   if args.certbot is not None:
-    require_section(config, 'docker')
+    require_section(config, 'docker', 'certbot')
     require_keys(config, 'docker', 'folder')
+    require_keys(config, 'certbot', 'port')
     require_docker()
     run_certbot(config, args.certbot, options)
   if args.esphome is not None:
@@ -85,8 +87,8 @@ def main():
   if args.backup is not None:
     require_section(config, 'backup', 'local', 'remote', 'settings')
     require_keys(config, 'backup', 'src', 'dst', 'apps')
-    require_keys(config, 'local', 'user', 'server', 'port', 'mnt', 'dst')
-    require_keys(config, 'remote', 'user', 'server', 'port', 'dst')
+    require_keys(config, 'local', 'user', 'server', 'port', 'mnt', 'dst', 'scp_opts')
+    require_keys(config, 'remote', 'user', 'server', 'port', 'dst', 'scp_opts')
     require_keys(config, 'settings', 'files', 'bkp')
     run_backup(config, args.backup, options)
 
@@ -111,6 +113,20 @@ def require_docker():
     sys.exit(1)
 
 
+def ts():
+  return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def real_home():
+  # When invoked via sudo, os.path.expanduser('~') resolves to root's home,
+  # not the operator's. The settings backup wants the operator's dotfiles
+  # (.ssh, .gitconfig), so prefer SUDO_USER's home when running under sudo.
+  sudo_user = os.environ.get('SUDO_USER')
+  if sudo_user:
+    return os.path.expanduser(f"~{sudo_user}")
+  return os.path.expanduser("~")
+
+
 def create_default_config(path, config):
   config['system'] = {
     'update': 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y',
@@ -118,6 +134,7 @@ def create_default_config(path, config):
     'info': 'uname -a && uptime && df -h && sudo rpi-eeprom-update',
   }
   config['docker'] = {'folder': '/home/woke/lemonpi/docker'}
+  config['certbot'] = {'port': '8080:80'}
   config['esphome'] = {'folder': '/home/woke/lemonpi/esphome'}
   config['minecraft'] = {'identifier': 'minecraft-server'}
   config['backup'] = {
@@ -131,12 +148,14 @@ def create_default_config(path, config):
     'port': '22',
     'mnt': '/mnt',
     'dst': '/mnt/lemonpi',
+    'scp_opts': '-O',
   }
   config['remote'] = {
     'user': 'wolfgang.keller',
     'server': 'ds416play',
     'port': '221',
     'dst': 'lemonpi',
+    'scp_opts': '-O',
   }
   config['settings'] = {'files': '.ssh .gitconfig', 'bkp': 'settings.tgz'}
   with open(path, 'w') as f:
@@ -162,13 +181,18 @@ def run(cmd, options, **kwargs):
 
 
 def run_system(cmd, config, options):
+  # [system] values are run through the shell (shell=True) so they can use
+  # '&&' chains and redirects. They are therefore trusted input: anyone who
+  # can edit tools.ini gains arbitrary command execution. Keep this file
+  # writable only by the server owner.
   run(config['system'][cmd], options, shell=True)
 
 
 def run_certbot(config, cmd, options):
   folder = config['docker']['folder']
+  port = config['certbot']['port']
   cmd = split_args(cmd)
-  run(["docker", "compose", "run", "--rm", "-p", "8080:80", "certbot"] + cmd, options, cwd=folder)
+  run(["docker", "compose", "run", "--rm", "-p", port, "certbot"] + cmd, options, cwd=folder)
   run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], options, cwd=folder)
   run(["docker", "compose", "down", "certbot"], options, cwd=folder)
 
@@ -177,6 +201,14 @@ def run_esphome(config, cmd, options):
   folder = config['docker']['folder']
   esphome_folder = config['esphome']['folder']
   cmd = split_args(cmd)
+  # Three directory references are deliberate and must stay consistent:
+  #   --project-directory=<docker folder>  -> where compose.yaml lives, so the
+  #                                            'esphome' service definition is found
+  #   cwd=<esphome folder>                 -> the config dir the esphome CLI
+  #                                            operates on (mounted into the container)
+  #   env PWD=<esphome folder>             -> compose resolves relative bind
+  #                                            mounts against $PWD, not cwd, so it
+  #                                            must be overridden to match cwd
   run(["docker", "compose", "--project-directory", folder, "run", "--rm", "esphome"] + cmd, options, cwd=esphome_folder, env={**os.environ, 'PWD': esphome_folder})
 
 
@@ -220,12 +252,14 @@ def run_backup(config, cmd, options):
 
   apps = backup['apps'].split() if len(cmd) == 1 else cmd[1:]
 
+  print(f"[{ts()}] backup {cmd[0]} started", file=sys.stderr)
+
   match cmd[0]:
     case 'execute':
       if not os.path.isdir(backup['dst']):
         print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
         sys.exit(1)
-      ok, skipped = 0, 0
+      ok, skipped, failed = 0, 0, 0
       for app in apps:
         print(f"{app:25}", end="", flush=True)
         src_path = os.path.join(backup['src'], app)
@@ -240,19 +274,28 @@ def run_backup(config, cmd, options):
           ok += 1
         else:
           result = subprocess.run(tar_cmd, cwd=backup['src'], capture_output=True)
+          # tar exit codes: 0 = ok, 1 = files changed while reading (archive
+          # still valid), 2 = fatal error (archive unusable).
           if result.returncode == 0:
             print("ok")
             ok += 1
-          else:
-            print("app modified during archiving")
+          elif result.returncode == 1:
+            print("ok (files changed during archiving)")
             ok += 1
-      print(f"\n{ok}/{ok + skipped} apps backed up, {skipped} skipped")
+          else:
+            stderr = result.stderr.decode(errors="replace").strip()
+            print(f"FAILED ({stderr.splitlines()[-1] if stderr else f'exit {result.returncode}'})")
+            failed += 1
+      print(f"\n{ok}/{ok + skipped + failed} apps backed up, {skipped} skipped, {failed} failed")
+      if failed:
+        print(f"[{ts()}] backup {cmd[0]} finished with {failed} failure(s)", file=sys.stderr)
+        sys.exit(1)
 
     case 'settings':
       if not os.path.isdir(backup['dst']):
         print(f"dst folder does not exist: {backup['dst']}", file=sys.stderr)
         sys.exit(1)
-      home = os.path.expanduser("~")
+      home = real_home()
       tar_cmd = ["sudo", "tar", "czf", os.path.join(backup['dst'], settings['bkp'])] + settings['files'].split()
       if options.dry_run:
         run(tar_cmd, options)
@@ -271,7 +314,7 @@ def run_backup(config, cmd, options):
         sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
-        run(["scp", "-P", local['port'], "-O"] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"], options)
+        run(["scp", "-P", local['port'], *local['scp_opts'].split()] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"], options)
 
     case 'remote':
       result = subprocess.run(["ping", "-c", "1", "-w", "1", remote['server']], capture_output=True)
@@ -280,10 +323,12 @@ def run_backup(config, cmd, options):
         sys.exit(1)
       files = glob.glob(os.path.join(backup['dst'], '*'))
       if files:
-        run(["scp", "-P", remote['port'], "-O"] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"], options)
+        run(["scp", "-P", remote['port'], *remote['scp_opts'].split()] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"], options)
 
     case 'list':
       run(["ls", "-lh", backup['dst']], options)
+
+  print(f"[{ts()}] backup {cmd[0]} finished", file=sys.stderr)
 
 
 if __name__ == "__main__":
