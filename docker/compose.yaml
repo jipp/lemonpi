@@ -206,7 +206,7 @@ services:
     networks:
       octoprint: null
     ports:
-      - "127.0.0.1:88:80"
+      - "127.0.0.1:8880:80"
     restart: unless-stopped
     logging: *default-logging
     volumes:
