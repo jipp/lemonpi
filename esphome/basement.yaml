@@ -7,7 +7,6 @@ substitutions:
   devicename: basement
   comment: m5stack-core-esp32-16M
   name: woke.basement
-  version: 2.4.1
   logger: INFO
   clk_pin: GPIO18
   miso_pin: GPIO19
@@ -68,11 +67,6 @@ logger:
 debug:
   <<: !include common/debug.yaml
 
-globals:
-  - id: total_gas_pulses
-    type: float
-    initial_value: '0.0'
-
 text_sensor:
   - <<: !include common/text_sensor_version.yaml
   - <<: !include common/text_sensor_wifi_info.yaml
@@ -105,17 +99,36 @@ sensor:
     accuracy_decimals: 2
     lambda: !lambda |-
       return id(sensor_homeassistant_gas_offset).state+id(sensor_homeassistant_gas_current_2).state;
-  - platform: template
-    name: ${gas_current}
-    id: sensor_template_gas_current
-    device_class: gas
+  - platform: pulse_counter
+    id: sensor_gas_current
+    internal: true
+    pin:
+      number: ${binary_sensor_gas}
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    # Count on the falling edge only (one count per gas meter revolution pulse).
+    count_mode:
+      rising_edge: DISABLE
+      falling_edge: INCREMENT
+    # Hardware/ISR-level debounce, replaces the old 100ms delayed_on filter.
+    internal_filter: 100ms
+    # The instantaneous rate sensor is not needed for billing; expose only the
+    # cumulative total. Each pulse = 0.01 m³.
     update_interval: 10s
-    unit_of_measurement: m³
-    state_class: total_increasing
-    icon: mdi:fire
-    accuracy_decimals: 2
-    lambda: !lambda |-
-      return id(total_gas_pulses);
+    total:
+      name: ${gas_current}
+      id: sensor_gas_current_total
+      device_class: gas
+      unit_of_measurement: m³
+      state_class: total_increasing
+      icon: mdi:fire
+      accuracy_decimals: 2
+      # Persist the cumulative count across reboots.
+      restore: true
+      filters:
+        - multiply: 0.01
   - platform: sml
     name: ${energy_use}
     id: sensor_sml_energy_use
@@ -185,21 +198,6 @@ binary_sensor:
           - delay: 10s
           - switch.turn_off:
               id: switch_bl
-  - platform: gpio
-    pin:
-      number: ${binary_sensor_gas}
-      inverted: true
-      mode:
-        input: true
-        pullup: true
-    id: puls
-    name: Puls
-    filters:
-      - delayed_on: 100ms
-    on_press:
-      - then:
-          - lambda: !lambda |-
-              id(total_gas_pulses) += 0.01;
 
 button:
   - <<: !include common/restart.yaml
@@ -248,10 +246,10 @@ display:
           it.strftime(it.get_width() - 2, ${small}, id(roboto_small), red, TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
 
           it.print(2, ${normal} + ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas_puls}:");
-          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", id(puls).state?"on":"off");
+          it.printf(it.get_width() - 2, ${normal} + ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%s", (id(sensor_gas_current).state > 0) ? "on" : "off");
 
           it.print(2, ${normal} + 2 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas_current}:");
-          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f m³", id(sensor_template_gas_current).state);
+          it.printf(it.get_width() - 2, ${normal} + 2 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f m³", id(sensor_gas_current_total).state);
 
           it.print(2, ${normal} + 3 * ${normal}, id(roboto_normal), green, TextAlign::BOTTOM_LEFT, "${gas}:");
           it.printf(it.get_width() - 2, ${normal} + 3 * ${normal}, id(roboto_normal), blue, TextAlign::BOTTOM_RIGHT, "%.2f m³", id(sensor_template_gas).state);

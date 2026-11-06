@@ -7,7 +7,6 @@ substitutions:
   devicename: livingroom
   comment: m5stack-atoms3
   name: woke.livingroom
-  version: 2.4.1
   logger: INFO
   sda_e_pin: GPIO2
   scl_e_pin: GPIO1
