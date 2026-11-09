@@ -71,6 +71,7 @@ debug:
 globals:
   - id: total_gas_pulses
     type: float
+    restore_value: true
     initial_value: '0.0'
 
 text_sensor:
@@ -205,10 +206,7 @@ button:
   - <<: !include common/restart.yaml
 
 switch:
-  - platform: gpio
-    pin:
-      number: ${bl_pin}
-    id: switch_bl
+  - <<: !include common/switch_backlight.yaml
 
 psram:
 

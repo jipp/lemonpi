@@ -191,23 +191,23 @@ display:
     lambda: |-
       it.strftime(it.get_width() - 2, ${extra_large}, id(roboto_extra_large), TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
 
-      it.print(2, ${extra_large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "uptime:");
-      it.printf(it.get_width() - 2, ${extra_large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
+      it.print(2, ${extra_large} + ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "uptime:");
+      it.printf(it.get_width() - 2, ${extra_large} + ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%.0f s", id(sensor_uptime).state);
 
-      it.print(2, ${extra_large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "WiFi Signal:");
-      it.printf(it.get_width() - 2, ${extra_large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
+      it.print(2, ${extra_large} + 2 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "WiFi Signal:");
+      it.printf(it.get_width() - 2, ${extra_large} + 2 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%.0f dBm", id(sensor_wifi_signal).state);
 
-      it.print(2, ${extra_large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "IP Address:");
-      it.printf(it.get_width() - 2, ${extra_large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
+      it.print(2, ${extra_large} + 3 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "IP Address:");
+      it.printf(it.get_width() - 2, ${extra_large} + 3 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(text_sensor_wifi_info_ip_address).state.c_str());
 
-      it.print(2, ${extra_large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "Home Assistant:");
-      it.printf(it.get_width() - 2, ${extra_large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
+      it.print(2, ${extra_large} + 4 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "Home Assistant:");
+      it.printf(it.get_width() - 2, ${extra_large} + 4 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(binary_sensor_status).state?"on":"off");
 
-      it.print(2, ${extra_large} + 5 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uE1C6");
-      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
+      it.print(2, ${extra_large} + 5 * ${huge}, id(font_icons_huge), TextAlign::BOTTOM_LEFT, "\uE1C6");
+      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
 
-      it.print(2, ${extra_large} + 6 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uEF44");
-      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
+      it.print(2, ${extra_large} + 6 * ${huge}, id(font_icons_huge), TextAlign::BOTTOM_LEFT, "\uEF44");
+      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
 
       it.printf(2, it.get_height() - 2, id(roboto_extra_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
 
@@ -221,11 +221,11 @@ display:
       it.graph(8 + 3 * ${w}, 2 + ${extra_large}, id(pressure_graph));
       it.graph(10 + 4 * ${w}, 2 + ${extra_large}, id(wind_speed_graph));
 
-      it.print(2, ${extra_large} + 5 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uE1C6");
-      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
+      it.print(2, ${extra_large} + 5 * ${huge}, id(font_icons_huge), TextAlign::BOTTOM_LEFT, "\uE1C6");
+      it.printf(it.get_width() - 2, ${extra_large} + 5 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(sunrise).state.c_str());
 
-      it.print(2, ${extra_large} + 6 * ${hughe}, id(font_icons_hughe), TextAlign::BOTTOM_LEFT, "\uEF44");
-      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
+      it.print(2, ${extra_large} + 6 * ${huge}, id(font_icons_huge), TextAlign::BOTTOM_LEFT, "\uEF44");
+      it.printf(it.get_width() - 2, ${extra_large} + 6 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_RIGHT, "%s", id(sunset).state.c_str());
 
       it.printf(2, it.get_height() - 2, id(roboto_extra_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
 
@@ -233,13 +233,13 @@ display:
     lambda: |-
       it.strftime(it.get_width() - 2, ${large}, id(roboto_large), TextAlign::BOTTOM_RIGHT, "%d.%m.%Y, %H:%M", id(time_homeassistant).now());
 
-      it.printf(2, ${large} + ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_temperature).state, id(forecast_home_temperature_unit).state.c_str());
-      it.printf(2, ${large} + 2 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_humidity).state);
-      it.printf(2, ${large} + 3 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_pressure).state, id(forecast_home_pressure_unit).state.c_str());
-      it.printf(2, ${large} + 4 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f °", id(forecast_home_wind_bearing).state);
-      it.printf(2, ${large} + 5 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_wind_speed).state, id(forecast_home_wind_speed_unit).state.c_str());
-      it.printf(2, ${large} + 6 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_cloud_coverage).state);
-      it.printf(2, ${large} + 7 * ${hughe}, id(roboto_hughe), TextAlign::BOTTOM_LEFT, "%s", id(forecast_home_state).state.c_str());
+      it.printf(2, ${large} + ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_temperature).state, id(forecast_home_temperature_unit).state.c_str());
+      it.printf(2, ${large} + 2 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_humidity).state);
+      it.printf(2, ${large} + 3 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_pressure).state, id(forecast_home_pressure_unit).state.c_str());
+      it.printf(2, ${large} + 4 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.0f °", id(forecast_home_wind_bearing).state);
+      it.printf(2, ${large} + 5 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.1f %s", id(forecast_home_wind_speed).state, id(forecast_home_wind_speed_unit).state.c_str());
+      it.printf(2, ${large} + 6 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%3.0f %%", id(forecast_home_cloud_coverage).state);
+      it.printf(2, ${large} + 7 * ${huge}, id(roboto_huge), TextAlign::BOTTOM_LEFT, "%s", id(forecast_home_state).state.c_str());
 
       it.printf(2, it.get_height() - 2, id(roboto_large), TextAlign::BOTTOM_LEFT, "%s", id(text_sensor_version).state.c_str());
 

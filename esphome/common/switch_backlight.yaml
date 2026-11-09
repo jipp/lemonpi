@@ -1,0 +1,4 @@
+- platform: gpio
+  pin:
+    number: ${bl_pin}
+  id: switch_bl

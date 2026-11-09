@@ -94,10 +94,7 @@ button:
   - <<: !include common/restart.yaml
 
 switch:
-  - platform: gpio
-    pin:
-      number: ${bl_pin}
-    id: switch_bl
+  - <<: !include common/switch_backlight.yaml
 
 graph:
   - id: illuminance_graph
