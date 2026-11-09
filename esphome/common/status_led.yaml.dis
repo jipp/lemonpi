@@ -1,4 +1,0 @@
-status_led:
-  pin:
-    number: ${status_led}
-    inverted: true
