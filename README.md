@@ -102,7 +102,7 @@ Maintenance commands (run on the Pi):
 scripts/tools.py -s update
 
 # bring the stack up / check status
-scripts/tools.py -d up -d        # docker compose up -d
+scripts/tools.py -d "up -d"      # docker compose up -d
 scripts/tools.py -d "ps -a"
 
 # renew certificates and reload nginx

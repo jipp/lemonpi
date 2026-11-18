@@ -4,6 +4,7 @@ import configparser
 import argparse
 import datetime
 import glob
+import re
 import shlex
 import shutil
 import subprocess
@@ -51,45 +52,58 @@ def main():
 
   options = argparse.Namespace(verbose=args.verbose, dry_run=args.dry_run)
 
-  config = configparser.ConfigParser()
+  # interpolation=None: values may legitimately contain '%' (e.g. date +%F)
+  config = configparser.ConfigParser(interpolation=None)
 
   if os.path.exists(args.file):
     config.read(args.file)
-  else:
+  elif os.path.abspath(args.file) == default_file:
     create_default_config(args.file, config)
+  else:
+    print(f"Error: config file not found: {args.file}", file=sys.stderr)
+    sys.exit(1)
 
+  # Validate everything first so a bad config can't cause a partial run.
   if args.system is not None:
     require_section(config, 'system')
     require_keys(config, 'system', args.system)
-    run_system(args.system, config, options)
   if args.certbot is not None:
     require_section(config, 'docker', 'certbot')
     require_keys(config, 'docker', 'folder')
     require_keys(config, 'certbot', 'port')
     require_docker()
-    run_certbot(config, args.certbot, options)
   if args.esphome is not None:
     require_section(config, 'docker', 'esphome')
     require_keys(config, 'docker', 'folder')
     require_keys(config, 'esphome', 'folder')
     require_docker()
-    run_esphome(config, args.esphome, options)
   if args.docker is not None:
     require_section(config, 'docker')
     require_keys(config, 'docker', 'folder')
     require_docker()
-    run_docker(config, args.docker, options)
   if args.minecraft is not None:
     require_section(config, 'minecraft')
     require_keys(config, 'minecraft', 'identifier')
     require_docker()
-    run_minecraft(config, args.minecraft, options)
   if args.backup is not None:
     require_section(config, 'backup', 'local', 'remote', 'settings')
     require_keys(config, 'backup', 'src', 'dst', 'apps')
     require_keys(config, 'local', 'user', 'server', 'port', 'mnt', 'dst', 'scp_opts')
     require_keys(config, 'remote', 'user', 'server', 'port', 'dst', 'scp_opts')
     require_keys(config, 'settings', 'files', 'bkp')
+
+  # Execution order is fixed (not command-line order).
+  if args.system is not None:
+    run_system(args.system, config, options)
+  if args.certbot is not None:
+    run_certbot(config, args.certbot, options)
+  if args.esphome is not None:
+    run_esphome(config, args.esphome, options)
+  if args.docker is not None:
+    run_docker(config, args.docker, options)
+  if args.minecraft is not None:
+    run_minecraft(config, args.minecraft, options)
+  if args.backup is not None:
     run_backup(config, args.backup, options)
 
 
@@ -125,6 +139,31 @@ def real_home():
   if sudo_user:
     return os.path.expanduser(f"~{sudo_user}")
   return os.path.expanduser("~")
+
+
+def real_uid():
+  # Same idea as real_home(): under sudo, hand archives back to the operator.
+  return int(os.environ.get('SUDO_UID', os.getuid()))
+
+
+def make_archive(dst_path, members, cwd, ok_codes=(0,)):
+  # Write to a temp file and move it into place only on success, so a failed
+  # run never destroys the previous good backup. Archives may contain secrets
+  # (.ssh keys, TLS keys), so they are made owner-only (600) and owned by the
+  # operator so scp can still read them without root.
+  tmp = f"{dst_path}.tmp"
+  result = subprocess.run(["sudo", "tar", "czf", tmp, *members], cwd=cwd, capture_output=True)
+  if result.returncode in ok_codes:
+    for step in (["sudo", "chmod", "600", tmp],
+                 ["sudo", "chown", str(real_uid()), tmp],
+                 ["sudo", "mv", "-f", tmp, dst_path]):
+      step_result = subprocess.run(step, capture_output=True)
+      if step_result.returncode != 0:
+        subprocess.run(["sudo", "rm", "-f", tmp], capture_output=True)
+        return step_result
+    return result
+  subprocess.run(["sudo", "rm", "-f", tmp], capture_output=True)
+  return result
 
 
 def create_default_config(path, config):
@@ -175,7 +214,11 @@ def run(cmd, options, **kwargs):
     print(f"  {display}", file=sys.stderr)
   if options.dry_run:
     return
-  result = subprocess.run(cmd, **kwargs)
+  try:
+    result = subprocess.run(cmd, **kwargs)
+  except OSError as e:
+    print(f"Error: {display}: {e}", file=sys.stderr)
+    sys.exit(127)
   if result.returncode != 0:
     print(f"Error: {display}", file=sys.stderr)
     sys.exit(result.returncode)
@@ -193,9 +236,13 @@ def run_certbot(config, cmd, options):
   folder = config['docker']['folder']
   port = config['certbot']['port']
   cmd = split_args(cmd)
-  run(["docker", "compose", "run", "--rm", "-p", port, "certbot"] + cmd, options, cwd=folder)
-  run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], options, cwd=folder)
-  run(["docker", "compose", "down", "certbot"], options, cwd=folder)
+  try:
+    run(["docker", "compose", "run", "--rm", "-p", port, "certbot"] + cmd, options, cwd=folder)
+    run(["docker", "compose", "exec", "nginx", "nginx", "-s", "reload"], options, cwd=folder)
+  finally:
+    # always clean up, even if certbot or the nginx reload failed
+    # (run() exits via SystemExit, which still triggers this block)
+    run(["docker", "compose", "down", "certbot"], options, cwd=folder)
 
 
 def run_esphome(config, cmd, options):
@@ -228,11 +275,21 @@ def run_docker(config, cmd, options):
 def run_minecraft(config, cmd, options):
   identifier = config['minecraft']['identifier']
   cmd = split_args(cmd)
+  # Docker's name filter is a regex. Anchor it to the start so only names
+  # beginning with the identifier match ("minecraft-server" and
+  # "minecraft-server-small", but not the "minecraft-backup" sidecars).
   result = subprocess.run(
-    ["docker", "ps", "-a", "--filter", "status=running", "--format", "{{.Names}}", "--filter", f"name={identifier}"],
+    ["docker", "ps", "--filter", "status=running", "--format", "{{.Names}}",
+     "--filter", f"name=^/?{re.escape(identifier)}"],
     capture_output=True, text=True
   )
+  if result.returncode != 0:
+    print(f"Error: docker ps failed: {result.stderr.strip()}", file=sys.stderr)
+    sys.exit(result.returncode)
   servers = result.stdout.split()
+  if not servers:
+    print(f"Error: no running container matches '{identifier}'", file=sys.stderr)
+    sys.exit(1)
   for server in servers:
     print(f"{server}:")
     run(["docker", "exec", server, "rcon-cli"] + cmd, options)
@@ -274,7 +331,7 @@ def run_backup(config, cmd, options):
           print("dry-run")
           ok += 1
         else:
-          result = subprocess.run(tar_cmd, cwd=backup['src'], capture_output=True)
+          result = make_archive(os.path.join(backup['dst'], f"{app}.tgz"), [app], backup['src'], ok_codes=(0, 1))
           # tar exit codes: 0 = ok, 1 = files changed while reading (archive
           # still valid), 2 = fatal error (archive unusable).
           if result.returncode == 0:
@@ -301,9 +358,10 @@ def run_backup(config, cmd, options):
       if options.dry_run:
         run(tar_cmd, options)
       else:
-        result = subprocess.run(tar_cmd, cwd=home, capture_output=True)
+        result = make_archive(os.path.join(backup['dst'], settings['bkp']), settings['files'].split(), home)
         if result.returncode != 0:
-          print("Error backing up settings", file=sys.stderr)
+          stderr = result.stderr.decode(errors="replace").strip()
+          print(f"Error backing up settings: {stderr or f'exit {result.returncode}'}", file=sys.stderr)
           sys.exit(1)
 
     case 'local':
@@ -313,7 +371,7 @@ def run_backup(config, cmd, options):
       if not os.path.exists(local['dst']):
         print(f"Error: {local['dst']} does not exist", file=sys.stderr)
         sys.exit(1)
-      files = glob.glob(os.path.join(backup['dst'], '*'))
+      files = [f for f in glob.glob(os.path.join(backup['dst'], '*')) if not f.endswith('.tmp')]
       if files:
         run(["scp", "-P", local['port'], *local['scp_opts'].split()] + files + [f"{local['user']}@{local['server']}:{local['dst']}/"], options)
 
@@ -322,7 +380,7 @@ def run_backup(config, cmd, options):
       if result.returncode != 0:
         print(f"Error: {remote['server']} not reachable", file=sys.stderr)
         sys.exit(1)
-      files = glob.glob(os.path.join(backup['dst'], '*'))
+      files = [f for f in glob.glob(os.path.join(backup['dst'], '*')) if not f.endswith('.tmp')]
       if files:
         run(["scp", "-P", remote['port'], *remote['scp_opts'].split()] + files + [f"{remote['user']}@{remote['server']}:{remote['dst']}/"], options)
 
