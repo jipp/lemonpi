@@ -39,7 +39,7 @@ def main():
   parser.add_argument('-f', '--file', default=default_file, help='config file')
   parser.add_argument('-m', '--minecraft', nargs='+')
   parser.add_argument('-n', '--dry-run', action='store_true', help='show commands without executing')
-  parser.add_argument('-s', '--system', choices=['health', 'info', 'update'])
+  parser.add_argument('-s', '--system', choices=['health', 'info', 'update', 'dist-upgrade'])
   parser.add_argument('-v', '--version', action='version', version='%(prog)s 1.0')
   parser.add_argument('-V', '--verbose', action='store_true', help='show executed commands')
 
@@ -130,6 +130,7 @@ def real_home():
 def create_default_config(path, config):
   config['system'] = {
     'update': 'sudo apt update && sudo apt list --upgradable && sudo apt upgrade && sudo apt autoremove -y',
+    'dist-upgrade': 'sudo apt dist-upgrade',
     'health': 'dmesg -e -l emerg --level=alert,crit,err,warn,notice',
     'info': 'uname -a && uptime && df -h && sudo rpi-eeprom-update',
   }
